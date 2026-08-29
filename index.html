@@ -542,6 +542,14 @@ function renderForm(){
     const grid = el("div",{class:"grid g2"});
     fields.forEach(f=>{ const w=buildField(f); if(w) grid.append(w); });
     card.append(grid);
+    if(secKey==="basic"){
+      const clearBasicBtn = el("button",{type:"button", class:"secondary small"}, "기본정보 초기화");
+      clearBasicBtn.addEventListener("click", clearBasicInfo);
+      card.append(el("div",{class:"row", style:"margin-top:8px;justify-content:space-between"}, [
+        el("span",{class:"muted"}, "지역·프로젝트/현장명·발주처는 추가/수정 후에도 계속 유지됩니다. 새 현장으로 바꿀 때만 초기화하세요."),
+        clearBasicBtn
+      ]));
+    }
     if(secKey==="extra"){
       const gpsBtn = el("button",{type:"button", class:"secondary small"}, "📍 현재 위치 가져오기");
       gpsBtn.addEventListener("click", doGPSLookup);
@@ -833,18 +841,31 @@ function validateRequired(){
   }
   return missing;
 }
+// 여러 기록을 이어서 입력할 때 매번 다시 치지 않도록, 아래 필드는 일반 초기화에서 제외한다.
+// (지역/프로젝트·현장명/발주처는 "기본정보 초기화" 버튼을 눌러야만 지워짐 — clearBasicInfo 참고)
+const PRESERVE_ON_CLEAR = new Set(["project","client"]);
 function clearForm(){
   schema.forEach(f=>{
-    if(f.type==="regionkr") return;
+    if(f.type==="regionkr") return; // region2(지역)도 여기서는 초기화하지 않음
+    if(PRESERVE_ON_CLEAR.has(f.id)) return;
     const e=$(fid(f)); if(!e) return; e.value=""; e.classList.remove("field-error");
   });
-  if($("region2_sido")){ $("region2_sido").value=""; $("region2_sido").classList.remove("field-error"); $("region2_sido").dispatchEvent(new Event("change")); }
   selectedId=null;
   $("btnUpdate").disabled=true;
   $("btnDelete").disabled=true;
   clearStep2Form();
   currentPhotos=[]; renderPhotoThumbs();
   document.querySelectorAll("#tbl tbody tr").forEach(x=>x.classList.remove("is-selected"));
+}
+function clearBasicInfo(){
+  if($("project")) $("project").value="";
+  if($("client")) $("client").value="";
+  if($("region2_sido")){
+    $("region2_sido").value="";
+    $("region2_sido").classList.remove("field-error");
+    $("region2_sido").dispatchEvent(new Event("change"));
+  }
+  toast("기본정보(지역·프로젝트·발주처)를 초기화했습니다");
 }
 $("btnClearForm")?.addEventListener("click", clearForm);
 
@@ -1132,16 +1153,12 @@ async function saveBlobOnWeb(blob, filename){
     }
   }
 
-  if(navigator.canShare){
-    try{
-      const f = new File([blob], filename, {type: blob.type || _mimeFromName(filename)});
-      if(navigator.canShare({files:[f]})){
-        await navigator.share({ files:[f], title: filename, text:"GPR 관측기록" });
-        return { ok:true, via:"share" };
-      }
-    }catch(_){}
-  }
-
+  // ⚠ Web Share API(navigator.share)는 일부러 사용하지 않는다.
+  // 대상시설물이 많거나 사진이 많으면 XLSX/ZIP 생성에 몇 초가 걸릴 수 있는데,
+  // 그 사이 모바일 브라우저의 "사용자 제스처(activation)" 유효시간이 끝나버려
+  // share()가 조용히 아무 반응 없이 실패하는 경우가 있다(버튼을 눌러도 "안 나가는" 증상과 일치).
+  // 게다가 공유시트가 뜨더라도 사용자가 저장 동작을 끝까지 완료하지 않으면 실패한 것처럼 보인다.
+  // <a download>는 이런 제스처 만료 문제가 없어 모바일에서 더 안정적이므로 바로 이 방식을 사용한다.
   const url = URL.createObjectURL(blob);
   const a=document.createElement("a");
   a.href=url; a.download=filename;
@@ -1155,6 +1172,7 @@ async function saveBlobOnWeb(blob, filename){
 
 function toastExportResult(result, label){
   if(result && result.via==="cancelled"){ toast(`${label} 저장을 취소했습니다`); return; }
+  if(result && result.via==="download"){ toast(`${label} 다운로드를 시작했습니다. 기기의 '다운로드' 폴더 또는 '파일' 앱에서 확인하세요.`); return; }
   toast(`${label} 저장 완료 (${result?.via||""})`);
 }
 
