@@ -1,0 +1,1454 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>지표투과레이더(GPR) 관측기록 프로그램 Ver2.0</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GPR 기록">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="icon" href="./icons/icon-192.png">
+
+<!-- ✅ 로컬 라이브러리만 사용 (CDN/인터넷 의존 없음) -->
+<script src="./lib/xlsx.full.min.js" defer></script>
+<script src="./lib/jszip.min.js" defer></script>
+
+<style>
+:root{
+  --bg:#eef1f6;
+  --bg-grad:radial-gradient(1100px 560px at 8% -8%, #e6edfc 0%, transparent 58%),
+            radial-gradient(950px 480px at 100% 0%, #e6faf4 0%, transparent 55%),
+            #eef1f6;
+  --card:#ffffff; --card-2:#f5f7fb;
+  --fg:#0f172a; --muted:#64748b;
+  --brand:#2563eb; --brand-2:#0891b2; --brand-soft:#e9eefe;
+  --border:#e2e8f0;
+  --shadow:0 1px 2px rgba(15,23,42,.04), 0 10px 28px rgba(15,23,42,.07);
+  --shadow-sm:0 1px 3px rgba(15,23,42,.08);
+  --danger:#dc2626; --radius:16px; --radius-sm:11px;
+}
+body.dark{
+  --bg:#0a0f1a;
+  --bg-grad:radial-gradient(1100px 560px at 8% -8%, #101d34 0%, transparent 58%),
+            radial-gradient(950px 480px at 100% 0%, #08251f 0%, transparent 55%),
+            #0a0f1a;
+  --card:#111a2b; --card-2:#0d1524;
+  --fg:#e8eef8; --muted:#94a6c0;
+  --brand:#38bdf8; --brand-2:#34d399; --brand-soft:#112038;
+  --border:#1e293f;
+  --shadow:0 1px 2px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.5);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.4);
+  --danger:#f87171;
+}
+html{-webkit-text-size-adjust:100%}
+*{box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕","Segoe UI","Nanum Gothic",Roboto,sans-serif;
+  margin:0;background:var(--bg-grad);color:var(--fg);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+::selection{background:var(--brand);color:#fff}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+header{
+  background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;padding:14px 18px;
+  position:sticky; top:0; z-index:5; box-shadow:0 2px 14px rgba(15,23,42,.16);
+}
+header #titleBar{font-size:15px;font-weight:800;letter-spacing:-.1px;display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header #titleBar::before{content:"📡";font-size:15px}
+.wrap{max-width:1100px;margin:0 auto;padding:14px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px;border:1px solid var(--border)}
+.card strong{font-size:14px;font-weight:800;color:var(--fg)}
+.section-card h3{margin:0 0 14px 0;font-size:14px;font-weight:800;color:var(--fg);display:flex;align-items:center;gap:9px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.section-card h3::before{content:"";width:9px;height:9px;border-radius:3px;background:linear-gradient(135deg,var(--brand),var(--brand-2));flex:0 0 auto}
+.facility-grid{display:flex;flex-wrap:wrap;gap:10px}
+.facility-item{display:flex;flex-direction:column;gap:6px;flex:1 1 108px;min-width:104px;max-width:150px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card-2);transition:border-color .15s,background .15s}
+.facility-item:has(input:checked){background:var(--brand-soft);border-color:var(--brand)}
+.facility-item label{font-size:13px;font-weight:600;color:var(--fg);display:flex;align-items:center;gap:6px;margin:0;white-space:nowrap}
+.facility-item input[type=number]{padding:6px 8px;font-size:12px}
+@media (max-width:480px){ .facility-item{flex:1 1 45%;max-width:none} }
+.tip{font-size:12.5px;line-height:1.55;color:var(--fg);background:var(--brand-soft);border:1px solid color-mix(in srgb, var(--brand) 25%, var(--border));border-left:4px solid var(--brand);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:5px;letter-spacing:.1px}
+input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea{
+  width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);
+  color:var(--fg);font-size:14px;transition:border-color .15s,box-shadow .15s
+}
+input:not([type=checkbox]):not([type=radio]):not([type=file]):hover,select:hover,textarea:hover{border-color:color-mix(in srgb, var(--brand) 45%, var(--border))}
+input:not([type=checkbox]):not([type=radio]):not([type=file]):focus,select:focus,textarea:focus{
+  outline:none;border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent)
+}
+input[type=checkbox],input[type=radio]{width:16px;height:16px;accent-color:var(--brand);cursor:pointer;flex:0 0 auto}
+input:read-only{opacity:.65;background:var(--card-2)}
+textarea{min-height:64px;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;gap:12px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g2 .span2{grid-column:1/-1}
+@media (orientation: landscape){ .g2{grid-template-columns:repeat(3,1fr)} }
+body.wide .g2{grid-template-columns:repeat(3,1fr)}
+button{
+  border:0;border-radius:12px;padding:10px 16px;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-weight:700;cursor:pointer;
+  font-size:13px;box-shadow:0 2px 8px color-mix(in srgb, var(--brand) 35%, transparent);transition:transform .1s,box-shadow .15s,opacity .15s;
+}
+button:hover{transform:translateY(-1px);box-shadow:0 5px 14px color-mix(in srgb, var(--brand) 40%, transparent)}
+button:active{transform:translateY(0)}
+button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none}
+button.secondary{background:var(--card-2);color:var(--fg);border:1px solid var(--border);box-shadow:none}
+button.secondary:hover{background:var(--brand-soft);border-color:var(--brand)}
+button.warn{background:linear-gradient(135deg,var(--danger),#f87171);box-shadow:0 2px 8px color-mix(in srgb, var(--danger) 35%, transparent)}
+button.small{padding:7px 11px;border-radius:9px;font-size:12px}
+.muted{color:var(--muted);font-size:12px}
+.hidden{display:none !important}
+.field-error{outline:none !important;border-color:var(--danger) !important;box-shadow:0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent) !important}
+table{width:100%;border-collapse:collapse}
+th,td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:top;line-height:1.35;white-space:nowrap}
+thead th{background:var(--card-2);position:sticky;top:0;text-align:left;z-index:1;font-weight:700;color:var(--muted);border-bottom:2px solid var(--border)}
+tbody tr:nth-child(even){background:color-mix(in srgb, var(--fg) 3%, transparent)}
+tr.hoverable{cursor:pointer;transition:background .1s}
+tr.hoverable:hover td{background:var(--brand-soft)}
+tr.is-selected td{background:color-mix(in srgb, var(--brand) 18%, var(--card)) !important}
+.rowthumb{width:34px;height:34px;object-fit:cover;border-radius:8px;display:block;box-shadow:var(--shadow-sm)}
+.thumb-grid{display:flex;flex-wrap:wrap;gap:10px}
+.thumb{position:relative;width:82px;height:82px;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:var(--card-2);box-shadow:var(--shadow-sm)}
+.thumb img{width:100%;height:100%;object-fit:cover;cursor:pointer;display:block}
+.thumb .del{position:absolute;top:4px;right:4px;background:rgba(15,23,42,.75);color:#fff;border:0;border-radius:999px;width:20px;height:20px;font-size:12px;line-height:20px;text-align:center;padding:0;cursor:pointer}
+.thumb .badge{position:absolute;bottom:4px;left:4px;background:rgba(15,23,42,.75);color:#fff;font-size:10px;padding:2px 6px;border-radius:999px}
+@media (max-width:760px){
+  .g2{grid-template-columns:1fr}
+  th,td{font-size:11px;padding:5px 6px}
+  header .row{gap:6px}
+  header button{padding:9px 10px;border-radius:10px}
+}
+#toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(6px);
+  background:#0f172a;color:#fff;padding:11px 16px;border-radius:12px;opacity:0;pointer-events:none;
+  transition:opacity .25s,transform .25s;z-index:9999;max-width:90vw;text-align:center;
+  box-shadow:0 10px 26px rgba(0,0,0,.3);font-size:13px;font-weight:600;
+}
+#toast.show{opacity:.97;transform:translateX(-50%) translateY(0)}
+.modal{position:fixed;inset:0;background:rgba(10,15,26,.55);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;z-index:9998}
+.modal.show{display:flex}
+.dialog{
+  background:var(--card);border-radius:18px;box-shadow:0 22px 54px rgba(0,0,0,.28);
+  padding:16px;width:min(720px,92vw);max-height:80vh;overflow:auto;border:1px solid var(--border)
+}
+.corner-badge{
+  position:fixed;right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));
+  background:rgba(15,23,42,.85);color:#fff;padding:6px 11px;border-radius:999px;font-size:11.5px;
+  box-shadow:0 4px 16px rgba(0,0,0,.28);z-index:10000;user-select:none;pointer-events:none;letter-spacing:.3px;
+  backdrop-filter:blur(4px);
+}
+@media (max-width:480px){ .corner-badge{font-size:11px;padding:5px 9px} }
+</style>
+</head>
+
+<body>
+<header class="row" style="justify-content:space-between;align-items:center">
+  <div id="titleBar">지표투과레이더(GPR) 관측기록 프로그램</div>
+  <div class="row" style="align-items:center">
+    <button id="btnEnv" class="secondary small">환경 점검</button>
+    <button id="btnTheme" class="secondary small" title="다크 모드">다크</button>
+    <button id="btnWide" class="secondary small">가로 보기</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <p class="tip">💡 이 프로그램은 인터넷 연결 없이 동작합니다. 기록은 이 기기(브라우저)에만 저장되므로, PC와 휴대폰 자료를 합치려면 아래 <b>「JSON 백업」</b>으로 내보낸 파일을 다른 기기에서 불러오세요. 처음 한 번은 폴더를 웹서버로 열어 <b>홈 화면/앱에 추가</b>를 해두면 이후 오프라인에서도 아이콘으로 바로 실행되고 위치(GPS) 기능도 안정적으로 동작합니다.</p>
+
+  <!-- 입력 폼 (JS가 섹션별 카드로 렌더링) -->
+  <div id="formArea"></div>
+
+  <!-- 사진 -->
+  <div class="card" id="photoCard">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>
+        <strong>⑤ 사진</strong>
+        <span class="muted">현장 사진 첨부(선택, 자동 압축 저장)</span>
+      </div>
+      <button id="btnAddPhoto" type="button" class="secondary small">사진 추가</button>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" multiple capture="environment" class="hidden"/>
+    <div id="photoThumbs" class="thumb-grid" style="margin-top:8px"></div>
+  </div>
+
+  <!-- Step2: 존재시설물 -->
+  <div class="card" id="step2InlineCard">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div>
+        <strong>⑥ 존재시설물 · 설명</strong>
+        <span class="muted">선택/거리 입력 시 아래 설명 및 위치도가 자동 작성됩니다</span>
+      </div>
+    </div>
+    <div id="s2Diagram" class="card" style="margin-top:10px;background:var(--card-2)"></div>
+    <div id="step2Form" class="grid g2" style="margin-top:8px"></div>
+    <p class="muted" style="margin:6px 0 0 2px">항목 선택 없이도 입력 가능하며, 추가/수정 시 함께 저장됩니다.</p>
+  </div>
+
+  <!-- 액션 버튼 -->
+  <div class="card">
+    <div class="row">
+      <button id="btnAdd">추가</button>
+      <button id="btnUpdate" class="secondary" disabled>수정 저장</button>
+      <button id="btnDelete" class="warn" disabled>선택 삭제</button>
+      <button id="btnBulkDelete" class="warn" disabled>선택 전체 삭제</button>
+      <button id="btnClearForm" class="secondary">입력 초기화</button>
+    </div>
+  </div>
+
+  <!-- 검색/목록 -->
+  <div class="card">
+    <div class="row">
+      <input id="q" placeholder="검색(프로젝트/현장명/조사자/시군구 등)"/>
+      <button id="btnReload" class="secondary">목록 새로고침</button>
+    </div>
+  </div>
+  <div class="card" style="overflow:auto;max-height:60vh">
+    <table id="tbl">
+      <thead><tr id="theadRow"></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- 내보내기 / 백업 -->
+  <div class="card">
+    <div style="margin-bottom:8px"><strong>⑦ 내보내기 · 백업</strong></div>
+    <div class="row">
+      <button id="btnExport">엑셀 내보내기(.xlsx)</button>
+      <button id="btnExportCSV" class="secondary">CSV 내보내기</button>
+      <button id="btnExportZip" class="secondary">사진 포함 ZIP 내보내기</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnBackupExport" class="secondary">JSON 백업 내보내기</button>
+      <button id="btnBackupImportBtn" class="secondary">JSON 백업 가져오기</button>
+      <input type="file" id="btnBackupImportFile" accept="application/json,.json" class="hidden"/>
+    </div>
+    <p class="muted" style="margin:8px 2px 0">※ 엑셀/CSV는 사진을 포함하지 않습니다(파일 손상 방지). 사진까지 옮기려면 ZIP 또는 JSON 백업을 사용하세요.</p>
+  </div>
+</div>
+
+<!-- 환경점검 모달 -->
+<div class="modal" id="envModal" aria-hidden="true">
+  <div class="dialog">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+      <strong>환경 점검</strong>
+      <button id="btnEnvClose" class="secondary">닫기</button>
+    </div>
+    <pre id="envText" style="white-space:pre-wrap;font-size:13px;color:var(--fg);margin:0"></pre>
+  </div>
+</div>
+
+<!-- 사진 보기 모달 -->
+<div class="modal" id="photoModal" aria-hidden="true">
+  <div class="dialog" style="max-width:640px">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+      <strong>사진 보기</strong>
+      <button id="btnPhotoModalClose" class="secondary">닫기</button>
+    </div>
+    <img id="photoModalImg" style="max-width:100%;border-radius:8px;display:block;margin:0 auto"/>
+    <div class="row" style="justify-content:center;margin-top:8px">
+      <button id="btnPhotoPrev" class="secondary small">◀ 이전</button>
+      <button id="btnPhotoNext" class="secondary small">다음 ▶</button>
+    </div>
+  </div>
+</div>
+
+<div class="corner-badge" id="badge">Web</div>
+<div id="toast"></div>
+
+<script>
+/* ============================= CORE ============================= */
+const APP_VERSION = "Ver2.0";
+const DEFAULT_TITLE = "지표투과레이더(GPR) 관측기록 프로그램";
+const FACILITIES = ["상수","하수(우수)","하수(오수)","전기","가스","통신","난방","송수"];
+const EXIST_FACILITIES = FACILITIES.slice();
+const FACILITY_COLORS = {
+  "상수":"#ef4444",
+  "하수(우수)":"#22c55e",
+  "하수(오수)":"#06b6d4",
+  "전기":"#2563eb",
+  "가스":"#d946ef",
+  "통신":"#f97316",
+  "난방":"#6b7280",
+  "송수":"#eab308"
+};
+
+const Cap = window.Capacitor || {};
+const Plugins = Cap.Plugins || {};
+const Filesystem = Plugins.Filesystem || Cap.Filesystem || null;
+const Share = Plugins.Share || null;
+
+const platform = Cap.getPlatform ? Cap.getPlatform() : (Cap.platform || "web");
+const isNative = (Cap.isNativePlatform && Cap.isNativePlatform()) || ["android","ios"].includes(String(platform)) || !!(Filesystem && Filesystem.writeFile);
+
+function setBadge(){
+  const b = document.getElementById("badge");
+  if(!b) return;
+  const p = String(platform || "web");
+  b.textContent = `${p.toUpperCase()} · ${isNative ? "Native" : "Web"}`;
+}
+
+/* ===== DOM 유틸 ===== */
+const $ = id => document.getElementById(id);
+const el = (t,a={},c=[])=>{ const e=document.createElement(t);
+  Object.entries(a).forEach(([k,v])=>{ if(v!=null) e.setAttribute(k,v); });
+  (Array.isArray(c)?c:[c]).forEach(x=>{ if(x==null) return; typeof x==="string" ? e.appendChild(document.createTextNode(x)) : e.appendChild(x); });
+  return e;
+};
+function toast(msg){ const t=$("toast"); if(!t) return; t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2200); }
+function uid(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('id_'+Date.now()+'_'+Math.random().toString(36).slice(2)); }
+
+/* ===== IndexedDB ===== */
+const DB_NAME="gpr_offline"; const DB_VER=8;
+function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME, DB_VER);
+  r.onupgradeneeded=()=>{ const db=r.result;
+    if(!db.objectStoreNames.contains("schema")) db.createObjectStore("schema",{keyPath:"id"});
+    if(!db.objectStoreNames.contains("records")){
+      const s=db.createObjectStore("records",{keyPath:"id",autoIncrement:true});
+      s.createIndex("created_at","created_at");
+    }
+    if(!db.objectStoreNames.contains("settings")) db.createObjectStore("settings",{keyPath:"key"});
+  };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+});}
+async function idbGet(store, key){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(store,"readonly"); const st=tx.objectStore(store); const req=st.get(key); req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); });}
+async function idbPut(store, obj){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(store,"readwrite"); const st=tx.objectStore(store); const req=st.put(obj); req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); });}
+async function idbDel(store, key){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(store,"readwrite"); const st=tx.objectStore(store); const req=st.delete(key); req.onsuccess=()=>res(true); req.onerror=()=>rej(req.error); });}
+async function idbAll(store, desc=false){ const db=await openDB(); return new Promise((res,rej)=>{ const tx=db.transaction(store,"readonly"); const st=tx.objectStore(store); const out=[]; const req=st.openCursor(null, desc?"prev":"next");
+  req.onsuccess=()=>{ const c=req.result; if(c){ out.push(c.value); c.continue(); } else res(out); };
+  req.onerror=()=>rej(req.error);
+});}
+
+/* ===== 설정/테마/타이틀 ===== */
+async function getAppTitle(){ return (await idbGet("settings","appTitle"))?.value || DEFAULT_TITLE; }
+function applyTitle(t){ document.title=`${t} ${APP_VERSION}`; const tb=$("titleBar"); if(tb) tb.textContent=`${t} ${APP_VERSION}`; }
+async function getTheme(){ return (await idbGet("settings","theme"))?.value || "light"; }
+function applyTheme(v){ document.body.classList.toggle("dark", v==="dark"); $("btnTheme").textContent = v==="dark" ? "라이트" : "다크"; }
+async function setTheme(v){ await idbPut("settings",{key:"theme", value:v}); applyTheme(v); }
+$("btnTheme")?.addEventListener("click", async ()=>{ const cur=await getTheme(); await setTheme(cur==="dark"?"light":"dark"); });
+$("btnWide")?.addEventListener("click", ()=>{ const wide=document.body.classList.toggle("wide"); $("btnWide").textContent=wide?"세로 보기":"가로 보기"; });
+
+/* ===== 스키마(v2: GPR 실무 항목 + 섹션 구분) ===== */
+const SECTION_TITLES = { basic:"① 기본 정보", equip:"② 장비 · 측정 조건", result:"③ 측정 결과", extra:"④ 위치 · 파일 정보" };
+const defaultSchema = [
+  {id:"region2",label:"지역",type:"regionkr",required:true, section:"basic"},
+  {id:"project",label:"프로젝트/현장명",type:"text", section:"basic"},
+  {id:"client",label:"발주처/의뢰기관",type:"text", section:"basic"},
+  {id:"inspector",label:"조사자",type:"text",required:true, section:"basic"},
+  {id:"date",label:"작업일자",type:"date",required:true,uniqueKey:true, section:"basic"},
+  {id:"line",label:"라인ID(측선)",type:"text",required:true,uniqueKey:true, section:"basic"},
+
+  {id:"weather",label:"날씨",type:"select",required:true,options:["맑음","구름많음","흐림","비","눈","바람 강함"], section:"equip"},
+  {id:"temp",label:"기온(°C)",type:"number",required:true,min:-40,max:60, section:"equip"},
+  {id:"equipment",label:"GPR 장비명/모델",type:"text", section:"equip"},
+  {id:"antennaFreq",label:"안테나 주파수(MHz)",type:"number",min:0,max:5000, section:"equip"},
+  {id:"epsilon",label:"유전율",type:"number",required:true,min:1,max:100, section:"equip"},
+  {id:"method",label:"작업방법",type:"select",required:true,options:["횡단","종단","병행","기타"], section:"equip"},
+  {id:"scanInterval",label:"스캔간격(cm)",type:"number",min:0,max:1000, section:"equip"},
+  {id:"direction",label:"측정방향",type:"text", section:"equip"},
+  {id:"staStart",label:"측선 시작(STA)",type:"text", section:"equip"},
+  {id:"staEnd",label:"측선 종료(STA)",type:"text", section:"equip"},
+  {id:"roadWidth",label:"도로 폭(측선 전체 길이, m)",type:"number",min:0,max:10000, section:"equip", hint:"⑥ 존재시설물 위치도의 축척 기준으로 사용됩니다"},
+
+  {id:"target",label:"대상시설물",type:"select",required:true,options:[...FACILITIES,"기타"], section:"result"},
+  {id:"depth",label:"심도(m)",type:"number",required:true,min:0,max:30, section:"result"},
+  {id:"distance",label:"거리(m)",type:"number",min:0,max:10000, section:"result"},
+  {id:"memo",label:"메모",type:"textarea", section:"result"},
+
+  {id:"gps_lat",label:"위도",type:"number",min:-90,max:90, section:"extra"},
+  {id:"gps_lon",label:"경도",type:"number",min:-180,max:180, section:"extra"},
+  {id:"tm_x",label:"X(m)",type:"number", section:"extra", readonly:true, hint:"TM 중부원점(EPSG:5186), 위·경도로 자동 계산 — 한국 관례상 X=북쪽(N)"},
+  {id:"tm_y",label:"Y(m)",type:"number", section:"extra", readonly:true, hint:"TM 중부원점(EPSG:5186), 위·경도로 자동 계산 — 한국 관례상 Y=동쪽(E)"},
+  {id:"filename",label:"원본데이터 파일명",type:"text", section:"extra"},
+
+  {id:"seq",label:"일련번호",type:"autonum", section:"extra"},
+  {id:"saved",label:"저장/수정 시각",type:"now", section:"extra"}
+];
+let schema=[]; let rows=[]; let selectedId=null; let selectedIds=new Set();
+let currentPhotos=[]; let photoModalIdx=0;
+let lastAutoDesc=""; // 체크박스에서 자동 생성한 마지막 문구(사용자가 직접 수정한 내용은 덮어쓰지 않기 위한 추적용)
+
+/* ===== 지역 데이터 ===== */
+window.PROVINCES = ["서울특별시","부산광역시","대구광역시","인천광역시","광주광역시","대전광역시","울산광역시","세종특별자치시","경기도","강원특별자치도","충청북도","충청남도","전북특별자치도","전라남도","경상북도","경상남도","제주특별자치도"];
+window.KR_REGIONS = {
+  "서울특별시":["종로구","중구","용산구","성동구","광진구","동대문구","중랑구","성북구","강북구","도봉구","노원구","은평구","서대문구","마포구","양천구","강서구","구로구","금천구","영등포구","동작구","관악구","서초구","강남구","송파구","강동구"],
+  "부산광역시":["중구","서구","동구","영도구","부산진구","동래구","남구","북구","해운대구","사하구","금정구","강서구","연제구","수영구","사상구","기장군"],
+  "대구광역시":["중구","동구","서구","남구","북구","수성구","달서구","달성군","군위군"],
+  "인천광역시":["중구","동구","미추홀구","연수구","남동구","부평구","계양구","서구","강화군","옹진군"],
+  "광주광역시":["동구","서구","남구","북구","광산구"],
+  "대전광역시":["동구","중구","서구","유성구","대덕구"],
+  "울산광역시":["중구","남구","동구","북구","울주군"],
+  "세종특별자치시":[],
+  "경기도":["수원시","성남시","의정부시","안양시","부천시","광명시","평택시","동두천시","안산시","고양시","과천시","구리시","남양주시","오산시","시흥시","군포시","의왕시","하남시","용인시","파주시","이천시","안성시","김포시","화성시","광주시","양주시","포천시","여주시","양평군","가평군","연천군"],
+  "강원특별자치도":["춘천시","원주시","강릉시","동해시","태백시","속초시","삼척시","홍천군","횡성군","영월군","평창군","정선군","철원군","화천군","양구군","인제군","고성군","양양군"],
+  "충청북도":["청주시","충주시","제천시","보은군","옥천군","영동군","증평군","진천군","괴산군","음성군","단양군"],
+  "충청남도":["천안시","공주시","보령시","아산시","서산시","논산시","계룡시","당진시","금산군","부여군","서천군","청양군","홍성군","예산군","태안군"],
+  "전북특별자치도":["전주시","군산시","익산시","정읍시","남원시","김제시","완주군","진안군","무주군","장수군","임실군","순창군","고창군","부안군"],
+  "전라남도":["목포시","여수시","순천시","나주시","광양시","담양군","곡성군","구례군","고흥군","보성군","화순군","장흥군","강진군","해남군","영암군","무안군","함평군","영광군","장성군","완도군","진도군","신안군"],
+  "경상북도":["포항시","경주시","김천시","안동시","구미시","영주시","영천시","상주시","문경시","경산시","군위군","의성군","청송군","영양군","영덕군","청도군","고령군","성주군","칠곡군","예천군","봉화군","울진군","울릉군"],
+  "경상남도":["창원시","진주시","통영시","사천시","김해시","밀양시","거제시","양산시","의령군","함안군","창녕군","고성군","남해군","하동군","산청군","함양군","거창군","합천군"],
+  "제주특별자치도":["제주시","서귀포시"]
+};
+
+/* ===== UI 렌더: 입력 폼 ===== */
+function fid(f, sub){ return sub ? `${f.id}_${sub}` : f.id; }
+function setOptions(sel, arr, placeholder="선택"){ sel.innerHTML=""; sel.append(new Option(placeholder,"")); (arr||[]).forEach(v=> sel.append(new Option(v,v))); }
+function reqLabel(f){ return f.required ? [f.label, el("span",{style:"color:#ef4444;margin-left:2px"},"*")] : f.label; }
+
+function regionSelects(f){
+  const wrap = el("div", {});
+  const s1 = el("select", { id: fid(f,"sido"), ...(f.required?{required:"required"}:{}) });
+  const s2wrap = el("div", {});
+  setOptions(s1, (window.PROVINCES||[]), "시/도");
+  const renderS2 = () => {
+    s2wrap.innerHTML = "";
+    const list = (window.KR_REGIONS||{})[s1.value];
+    if (Array.isArray(list) && list.length){
+      const s2 = el("select", { id: fid(f,"sigungu"), ...(f.required?{required:"required"}:{}) });
+      setOptions(s2, list, "시군구");
+      s2wrap.append(el("div", {}, [ el("label", {}, "시/군/구"), s2 ]));
+    } else {
+      const s2 = el("input", { id: fid(f,"sigungu"), placeholder:"시군구 입력", ...(f.required?{required:"required"}:{}) });
+      s2wrap.append(el("div", {}, [ el("label", {}, "시/군/구(직접입력)"), s2 ]));
+    }
+  };
+  s1.onchange = renderS2; renderS2();
+  wrap.append(el("div", {}, [ el("label", {}, reqLabel({label:f.label+" (시/도)", required:f.required})), s1 ]));
+  wrap.append(s2wrap);
+  return wrap;
+}
+
+function buildField(f){
+  switch(f.type){
+    case "text": case "date": case "time": {
+      const attrs = { id:fid(f), type:f.type, placeholder:f.default||"" };
+      if (f.required) attrs.required = "required";
+      return el("div",{},[ el("label",{}, reqLabel(f)), el("input",attrs) ]);
+    }
+    case "number": {
+      const attrs = { id:fid(f), type:"number", inputmode:"decimal", step:(["depth","distance","scanInterval"].includes(f.id))?"0.01":"0.1" };
+      if (f.min != null) attrs.min = String(f.min);
+      if (f.max != null) attrs.max = String(f.max);
+      if (f.required) attrs.required = "required";
+      if (f.readonly) { attrs.readonly = "readonly"; attrs.tabindex = "-1"; }
+      const kids = [ el("label",{}, reqLabel(f)), el("input",attrs) ];
+      if (f.hint) kids.push(el("div",{class:"muted", style:"margin-top:3px"}, f.hint));
+      return el("div",{}, kids);
+    }
+    case "select": {
+      const sel=el("select",{id:fid(f), ...(f.required?{required:"required"}:{})});
+      setOptions(sel,f.options||[], "선택");
+      return el("div",{},[el("label",{}, reqLabel(f)), sel]);
+    }
+    case "textarea": {
+      const attrs = { id:fid(f), placeholder:f.default||"" };
+      if (f.required) attrs.required="required";
+      return el("div",{class:"span2"},[el("label",{}, reqLabel(f)), el("textarea",attrs)]);
+    }
+    case "regionkr": return regionSelects(f);
+    default:
+      return el("div", {}, [ el("label", {}, f.label), el("input", { id: fid(f), type: "text" }) ]);
+  }
+}
+
+/* ===== 위경도(WGS84) → TM 중부원점 X,Y(EPSG:5186) 변환 =====
+   GRS80 타원체 기준 Transverse Mercator 정방향 계산(Snyder 급수식).
+   국내 관례: X=북쪽(Northing), Y=동쪽(Easting) — 국제 GIS 관례(X=E,Y=N)와 반대이므로 주의. */
+const GRS80_A = 6378137.0;
+const GRS80_F = 1/298.257222101;
+const TM5186_PARAMS = { lat0:38, lon0:127, k0:1.0, FE:200000, FN:600000 };
+function deg2rad(d){ return d*Math.PI/180; }
+function latLonToTM5186(latDeg, lonDeg){
+  const a=GRS80_A, f=GRS80_F;
+  const e2 = f*(2-f), e4=e2*e2, e6=e4*e2;
+  const ep2 = e2/(1-e2);
+  const { lat0, lon0, k0, FE, FN } = TM5186_PARAMS;
+  const phi = deg2rad(latDeg), lambda = deg2rad(lonDeg);
+  const phi0 = deg2rad(lat0), lambda0 = deg2rad(lon0);
+  const meridianArc = p => a*(
+      (1 - e2/4 - 3*e4/64 - 5*e6/256)*p
+      - (3*e2/8 + 3*e4/32 + 45*e6/1024)*Math.sin(2*p)
+      + (15*e4/256 + 45*e6/1024)*Math.sin(4*p)
+      - (35*e6/3072)*Math.sin(6*p)
+  );
+  const N = a / Math.sqrt(1 - e2*Math.sin(phi)*Math.sin(phi));
+  const T = Math.tan(phi)*Math.tan(phi);
+  const C = ep2*Math.cos(phi)*Math.cos(phi);
+  const A = (lambda - lambda0)*Math.cos(phi);
+  const M = meridianArc(phi), M0 = meridianArc(phi0);
+  const easting = FE + k0*N*( A + (1-T+C)*Math.pow(A,3)/6
+                    + (5 - 18*T + T*T + 72*C - 58*ep2)*Math.pow(A,5)/120 );
+  const northing = FN + k0*( M - M0 + N*Math.tan(phi)*( Math.pow(A,2)/2
+                    + (5 - T + 9*C + 4*C*C)*Math.pow(A,4)/24
+                    + (61 - 58*T + T*T + 600*C - 330*ep2)*Math.pow(A,6)/720 ) );
+  return { x: northing, y: easting }; // 국내 관례: X=N, Y=E
+}
+function updateTMCoords(){
+  const latEl = $("gps_lat"), lonEl = $("gps_lon");
+  const xEl = $("tm_x"), yEl = $("tm_y");
+  if(!xEl || !yEl) return;
+  const latStr = (latEl?.value||"").trim(), lonStr = (lonEl?.value||"").trim();
+  const lat = Number(latStr), lon = Number(lonStr);
+  if(latStr!=="" && lonStr!=="" && Number.isFinite(lat) && Number.isFinite(lon) && lat>=-90 && lat<=90 && lon>=-180 && lon<=180){
+    const { x, y } = latLonToTM5186(lat, lon);
+    xEl.value = x.toFixed(2);
+    yEl.value = y.toFixed(2);
+  } else {
+    xEl.value = "";
+    yEl.value = "";
+  }
+}
+
+function doGPSLookup(){
+  if(!navigator.geolocation){ toast("이 브라우저/환경은 위치 기능을 지원하지 않습니다"); return; }
+  toast("위치 확인 중...");
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      const {latitude, longitude} = pos.coords;
+      const latEl = $("gps_lat"), lonEl = $("gps_lon");
+      if(latEl) latEl.value = latitude.toFixed(6);
+      if(lonEl) lonEl.value = longitude.toFixed(6);
+      updateTMCoords();
+      toast("현재 위치를 가져왔습니다");
+    },
+    (err)=>{
+      console.error(err);
+      let msg = "위치를 가져오지 못했습니다";
+      if(err.code===1) msg = "위치 권한이 거부되었습니다";
+      else if(err.code===2) msg = "위치 정보를 사용할 수 없습니다";
+      else if(err.code===3) msg = "위치 확인 시간이 초과되었습니다";
+      toast(msg);
+    },
+    { enableHighAccuracy:true, timeout:15000, maximumAge:0 }
+  );
+}
+
+function renderForm(){
+  const area=$("formArea"); if(!area) return; area.innerHTML="";
+  const bySection = {};
+  schema.forEach(f=>{ const s=f.section||"etc"; (bySection[s]=bySection[s]||[]).push(f); });
+  const order = ["basic","equip","result","extra"];
+  order.forEach(secKey=>{
+    const all = bySection[secKey]||[];
+    const fields = all.filter(f=> !["autonum","now"].includes(f.type));
+    const card = el("div",{class:"card section-card"});
+    card.append(el("h3",{}, SECTION_TITLES[secKey]||secKey));
+    const grid = el("div",{class:"grid g2"});
+    fields.forEach(f=>{ const w=buildField(f); if(w) grid.append(w); });
+    card.append(grid);
+    if(secKey==="extra"){
+      const gpsBtn = el("button",{type:"button", class:"secondary small"}, "📍 현재 위치 가져오기");
+      gpsBtn.addEventListener("click", doGPSLookup);
+      card.append(el("div",{class:"row", style:"margin-top:8px"}, [gpsBtn]));
+      const autoFields = all.filter(f=> ["autonum","now"].includes(f.type));
+      if(autoFields.length){
+        const autoRow = el("div",{class:"grid g2", style:"margin-top:8px;opacity:.7"});
+        autoFields.forEach(f=>{
+          const ro = el("input",{id:fid(f), type:"text", readonly:"readonly"});
+          autoRow.append(el("div",{},[el("label",{},f.label), ro]));
+        });
+        card.append(autoRow);
+      }
+    }
+    area.append(card);
+  });
+}
+
+/* ===== Step2: 존재시설물 ===== */
+function computeAutoDescFromDOM(){
+  const parts = [];
+  EXIST_FACILITIES.forEach(name=>{
+    const cb = document.getElementById(`s2_exist_${name}`);
+    const dist = document.getElementById(`s2_exist_${name}_dist`);
+    if (cb?.checked){
+      const d = (dist?.value || "").toString().trim();
+      parts.push(d ? `${name}:${d}m` : `${name}`);
+    }
+  });
+  return parts.join(", ");
+}
+function computeAutoDescFromExisting(exist){
+  const parts = [];
+  EXIST_FACILITIES.forEach(name=>{
+    if (Object.prototype.hasOwnProperty.call(exist||{}, name)){
+      const d = exist[name];
+      parts.push((d!=null && d!=="") ? `${name}:${d}m` : `${name}`);
+    }
+  });
+  return parts.join(", ");
+}
+function updateDescFromExisting(){
+  const newAuto = computeAutoDescFromDOM();
+  const descEl = $("s2_desc");
+  // 체크박스로 자동 생성되는 문구는 "특이사항"란의 시작 부분에 붙여준다.
+  // 단, 사용자가 자유롭게 덧붙이거나 고친 내용은 지우지 않는다(마지막 자동 문구와 비교해 그 부분만 교체).
+  if (descEl){
+    const current = descEl.value || "";
+    if (current === lastAutoDesc){
+      descEl.value = newAuto;
+    } else if (current.startsWith(lastAutoDesc) && lastAutoDesc !== ""){
+      descEl.value = newAuto + current.slice(lastAutoDesc.length);
+    } else if (current.trim() === ""){
+      descEl.value = newAuto;
+    }
+    // 그 외(사용자가 처음부터 다르게 작성한 경우)에는 자동 문구를 강제로 넣지 않고 그대로 둔다.
+  }
+  lastAutoDesc = newAuto;
+  renderExistingFacilityDiagram();
+}
+
+/* 존재시설물 위치도: 도로(측선)를 가로로 그리고, 존재하는 시설물만 실제 거리 비례 위치에 표시.
+   화살표는 거리를 재는 기준이 되는 진행방향 표시. */
+function renderExistingFacilityDiagram(){
+  const box = $("s2Diagram"); if(!box) return;
+  const roadWidthVal = Number($("roadWidth")?.value) || 0;
+
+  const items = FACILITIES.map(name=>{
+    const cb = document.getElementById(`s2_exist_${name}`);
+    const distEl = document.getElementById(`s2_exist_${name}_dist`);
+    const checked = !!cb?.checked;
+    const distRaw = (distEl?.value||"").toString().trim();
+    const dist = distRaw==="" ? null : Number(distRaw);
+    return { name, checked, dist, color: FACILITY_COLORS[name] || "#94a3b8" };
+  }).filter(x=>x.checked);
+
+  if(!items.length){
+    box.innerHTML = `<div class="muted" style="padding:6px 2px">존재하는 시설물을 선택하면 위치도가 표시됩니다.</div>`;
+    return;
+  }
+
+  const knownDists = items.filter(x=>x.dist!=null).map(x=>x.dist);
+  const effectiveWidth = roadWidthVal>0 ? roadWidthVal : (knownDists.length ? Math.max(...knownDists,1)*1.1 : 10);
+
+  const W=640, H=140, padX=40, y=64;
+  const xOf = d => padX + Math.max(0, Math.min(1, (d==null?0:d)/effectiveWidth)) * (W - padX*2);
+  const sorted = items.slice().sort((a,b)=> (a.dist??0) - (b.dist??0));
+
+  let dotsSvg = "";
+  sorted.forEach((it, idx)=>{
+    const cx = xOf(it.dist);
+    const above = idx%2===0;
+    const labelY = above ? y-22 : y+36;
+    const tickY2 = above ? y-12 : y+12;
+    const tickY1 = above ? labelY+6 : labelY-6;
+    const distTxt = it.dist!=null ? `${it.dist}m` : "거리 미입력";
+    dotsSvg += `
+      <line x1="${cx}" y1="${tickY1}" x2="${cx}" y2="${tickY2}" stroke="${it.color}" stroke-width="1.5" opacity="0.55"/>
+      <circle cx="${cx}" cy="${y}" r="9" fill="${it.color}" stroke="#ffffff" stroke-width="2"><title>${it.name} : ${distTxt}</title></circle>
+      <text x="${cx}" y="${labelY}" font-size="11" text-anchor="middle" fill="currentColor">${it.name}</text>
+      <text x="${cx}" y="${labelY + (above?12:12)}" font-size="9" text-anchor="middle" fill="currentColor" opacity="0.65">${distTxt}</text>
+    `;
+  });
+
+  box.innerHTML = `
+    <div class="muted" style="margin-bottom:4px">존재시설물 위치도 ${roadWidthVal>0 ? `(도로 폭 ${roadWidthVal}m 기준)` : "(도로 폭 미입력 — 상대 위치로 표시)"}</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:180px;color:var(--fg)">
+      <line x1="${padX}" y1="${y-26}" x2="${padX}" y2="${y+26}" stroke="currentColor" stroke-width="4"/>
+      <line x1="${W-padX}" y1="${y-26}" x2="${W-padX}" y2="${y+26}" stroke="currentColor" stroke-width="4"/>
+      <line x1="${padX}" y1="${y}" x2="${W-padX}" y2="${y}" stroke="currentColor" stroke-width="3"/>
+      <line x1="${padX+16}" y1="${y+34}" x2="${padX+16}" y2="${y+14}" stroke="currentColor" stroke-width="2"/>
+      <polygon points="${padX+16-6},${y+18} ${padX+16+6},${y+18} ${padX+16},${y+8}" fill="currentColor"/>
+      <text x="${padX+16}" y="${y+48}" font-size="10" text-anchor="middle" fill="currentColor" opacity="0.7">진행방향</text>
+      ${dotsSvg}
+    </svg>
+  `;
+}
+
+function renderStep2Form(){
+  const area = $("step2Form"); if(!area) return; area.innerHTML="";
+  const sec = el("div", { class:"card span2" }, [ el("div", { style:"font-weight:700;margin-bottom:8px" }, "존재시설물(주변 매설물)") ]);
+  const grid = el("div", { class:"facility-grid" });
+  EXIST_FACILITIES.forEach(name=>{
+    const dot = el("span", { style:`display:inline-block;width:8px;height:8px;border-radius:999px;background:${FACILITY_COLORS[name]||"#94a3b8"};flex:0 0 auto` });
+    const item = el("div", { class:"facility-item" }, [
+      el("label", {}, [ el("input", { id:`s2_exist_${name}`, type:"checkbox" }), dot, name ]),
+      el("input", { id:`s2_exist_${name}_dist`, type:"number", inputmode:"decimal", placeholder:"거리(m)", step:"0.1" })
+    ]);
+    item.querySelectorAll("input").forEach(i=> i.addEventListener("input", updateDescFromExisting));
+    grid.appendChild(item);
+  });
+  sec.appendChild(grid);
+  area.appendChild(sec);
+  const descTextarea = el("textarea",{ id:"s2_desc", placeholder:"예) 상수:120m, 하수(우수):50m — 체크 시 자동으로 채워지며, 자유롭게 덧붙여 작성할 수 있습니다" });
+  area.appendChild( el("div",{class:"span2"},[ el("label",{},"특이사항"), descTextarea ]) );
+  lastAutoDesc = "";
+  renderExistingFacilityDiagram();
+}
+function readStep2Form(){
+  const obj={}; const exist={};
+  EXIST_FACILITIES.forEach(name=>{
+    const on = document.getElementById(`s2_exist_${name}`)?.checked;
+    const d  = (document.getElementById(`s2_exist_${name}_dist`)?.value || "").toString().trim();
+    if (on) exist[name] = d ? Number(d) : null;
+  });
+  obj.existing=exist;
+  obj.desc = ($("s2_desc")?.value || "").trim();
+  return obj;
+}
+function fillStep2Form(data){
+  const exist = data?.existing || {};
+  EXIST_FACILITIES.forEach(name=>{
+    const cb = document.getElementById(`s2_exist_${name}`);
+    const dist = document.getElementById(`s2_exist_${name}_dist`);
+    if (cb) cb.checked = Object.prototype.hasOwnProperty.call(exist, name);
+    if (dist) dist.value = (exist?.[name] ?? "") === null ? "" : (exist?.[name] ?? "");
+  });
+  if ($("s2_desc")) $("s2_desc").value = data?.desc || "";
+  lastAutoDesc = computeAutoDescFromExisting(exist);
+  renderExistingFacilityDiagram();
+}
+function clearStep2Form(){
+  EXIST_FACILITIES.forEach(name=>{
+    const cb = document.getElementById(`s2_exist_${name}`);
+    const dist = document.getElementById(`s2_exist_${name}_dist`);
+    if (cb) cb.checked=false;
+    if (dist) dist.value="";
+  });
+  if ($("s2_desc")) $("s2_desc").value="";
+  lastAutoDesc = "";
+  renderExistingFacilityDiagram();
+}
+
+/* ===== 사진 ===== */
+function fileToCompressedDataURL(file, maxDim=1280, quality=0.72){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=>reject(reader.error || new Error("파일 읽기 실패"));
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>reject(new Error("이미지 로드 실패"));
+      img.onload = ()=>{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(w>maxDim || h>maxDim){
+          if(w>=h){ h = Math.round(h*maxDim/w); w = maxDim; }
+          else { w = Math.round(w*maxDim/h); h = maxDim; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width=w; canvas.height=h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img,0,0,w,h);
+        try{ resolve(canvas.toDataURL("image/jpeg", quality)); }
+        catch(e){ reject(e); }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function renderPhotoThumbs(){
+  const box = $("photoThumbs"); if(!box) return; box.innerHTML="";
+  currentPhotos.forEach((p, idx)=>{
+    const t = el("div",{class:"thumb"});
+    const img = el("img",{src:p.dataUrl});
+    img.addEventListener("click", ()=> openPhotoModal(idx));
+    const del = el("button",{type:"button", class:"del", title:"삭제"}, "×");
+    del.addEventListener("click", (e)=>{ e.stopPropagation(); currentPhotos = currentPhotos.filter(x=>x.id!==p.id); renderPhotoThumbs(); });
+    t.append(img, del);
+    box.append(t);
+  });
+}
+$("btnAddPhoto")?.addEventListener("click", ()=> $("photoInput").click());
+$("photoInput")?.addEventListener("change", async (e)=>{
+  const files = Array.from(e.target.files||[]);
+  e.target.value = "";
+  if(!files.length) return;
+  toast(`사진 ${files.length}장 처리 중...`);
+  for(const f of files){
+    try{
+      const dataUrl = await fileToCompressedDataURL(f);
+      currentPhotos.push({ id: uid(), name: f.name||"photo.jpg", dataUrl, ts: new Date().toISOString() });
+    }catch(err){ console.error(err); toast("사진 처리 실패: "+(f.name||"")); }
+  }
+  renderPhotoThumbs();
+  toast("사진 추가 완료");
+});
+function openPhotoModal(idx){
+  if(!currentPhotos.length) return;
+  photoModalIdx = ((idx % currentPhotos.length)+currentPhotos.length)%currentPhotos.length;
+  $("photoModalImg").src = currentPhotos[photoModalIdx].dataUrl;
+  $("photoModal").classList.add("show");
+}
+$("btnPhotoModalClose")?.addEventListener("click", ()=> $("photoModal").classList.remove("show"));
+$("btnPhotoPrev")?.addEventListener("click", ()=> openPhotoModal(photoModalIdx-1));
+$("btnPhotoNext")?.addEventListener("click", ()=> openPhotoModal(photoModalIdx+1));
+
+/* ===== 폼 IO ===== */
+function fidVal(f){ return ($((fid(f)))?.value||"").trim(); }
+function readForm(){
+  const obj={};
+  for(const f of schema){
+    switch(f.type){
+      case "text": case "number": case "date": case "time": case "select":
+      case "textarea": case "autonum": case "now":
+        obj[f.id]=fidVal(f); break;
+      case "regionkr":
+        obj[f.id+"_sido"]=$("region2_sido")?.value||"";
+        obj[f.id+"_sigungu"]=$("region2_sigungu")?.value||"";
+        break;
+    }
+  }
+  return obj;
+}
+function fillForm(row){
+  for(const f of schema){
+    switch(f.type){
+      case "text": case "number": case "date": case "time": case "select":
+      case "textarea": case "autonum": case "now":
+        if($(fid(f))) $(fid(f)).value = row.data[f.id]||"";
+        break;
+      case "regionkr":
+        if($("region2_sido")) $("region2_sido").value = row.data[f.id+"_sido"]||"";
+        if($("region2_sigungu")){
+          const list=(window.KR_REGIONS||{})[$("region2_sido").value]||[];
+          const s2=$("region2_sigungu");
+          if(s2 && s2.tagName==="SELECT") setOptions(s2, list, "시군구");
+          s2.value=row.data[f.id+"_sigungu"]||"";
+        }
+        break;
+    }
+  }
+}
+function validateRequired(){
+  const missing = [];
+  for(const f of schema){
+    if(!f.required) continue;
+    const inputEl = f.type==="regionkr" ? null : $(fid(f));
+    if(f.type==="regionkr"){
+      const sido = $("region2_sido")?.value||"";
+      const sigunguEl = $("region2_sigungu");
+      const sigungu = sigunguEl?.value||"";
+      if(!sido || !sigungu){ missing.push(f.label); $("region2_sido")?.classList.add("field-error"); }
+      else $("region2_sido")?.classList.remove("field-error");
+      continue;
+    }
+    const v = fidVal(f);
+    if(!v){ missing.push(f.label); inputEl?.classList.add("field-error"); }
+    else inputEl?.classList.remove("field-error");
+  }
+  return missing;
+}
+function clearForm(){
+  schema.forEach(f=>{
+    if(f.type==="regionkr") return;
+    const e=$(fid(f)); if(!e) return; e.value=""; e.classList.remove("field-error");
+  });
+  if($("region2_sido")){ $("region2_sido").value=""; $("region2_sido").classList.remove("field-error"); $("region2_sido").dispatchEvent(new Event("change")); }
+  selectedId=null;
+  $("btnUpdate").disabled=true;
+  $("btnDelete").disabled=true;
+  clearStep2Form();
+  currentPhotos=[]; renderPhotoThumbs();
+  document.querySelectorAll("#tbl tbody tr").forEach(x=>x.classList.remove("is-selected"));
+}
+$("btnClearForm")?.addEventListener("click", clearForm);
+
+/* ===== 자동필드/고유키 ===== */
+async function getSeq(){ const v=await idbGet("settings","seq"); return v?.value ?? 1; }
+async function setSeq(n){ await idbPut("settings",{key:"seq", value:n}); }
+function makeUniqueKey(data){ const keys=schema.filter(f=>f.uniqueKey).map(f=>f.id); return keys.map(k=>data[k]||"").join("|"); }
+function findDuplicate(key, exceptId=null){ return rows.find(r=> makeUniqueKey(r.data)===key && r.id!==exceptId ); }
+async function applyAutoFieldsOnAdd(obj){
+  for(const f of schema){
+    if(f.type==="autonum"){ const n=await getSeq(); obj[f.id]=String(n); await setSeq(n+1); }
+    if(f.type==="now"){ obj[f.id]=new Date().toISOString().replace("T"," ").slice(0,19); }
+  }
+}
+function refreshNowFields(obj){
+  for(const f of schema){ if(f.type==="now"){ obj[f.id]=new Date().toISOString().replace("T"," ").slice(0,19); } }
+}
+
+/* ===== CRUD ===== */
+$("btnAdd")?.addEventListener("click", async ()=>{
+  const missing = validateRequired();
+  if(missing.length){ alert("다음 필수 항목을 입력해 주세요:\n- "+missing.join("\n- ")); return; }
+
+  updateTMCoords();
+  const data=readForm();
+  await applyAutoFieldsOnAdd(data);
+  data.__step2 = readStep2Form();
+  data.photos = currentPhotos.slice();
+
+  const key=makeUniqueKey(data);
+  if(key && findDuplicate(key)){ alert("고유키(작업일자+라인ID) 항목이 중복됩니다."); return; }
+
+  await idbPut("records",{id: uid(), data, created_at:new Date().toISOString()});
+  toast("추가했습니다");
+  clearForm();
+  await reloadList();
+});
+
+$("btnUpdate")?.addEventListener("click", async ()=>{
+  if(!selectedId) return;
+  const missing = validateRequired();
+  if(missing.length){ alert("다음 필수 항목을 입력해 주세요:\n- "+missing.join("\n- ")); return; }
+
+  updateTMCoords();
+  const data=readForm();
+  refreshNowFields(data);
+  data.__step2 = readStep2Form();
+  data.photos = currentPhotos.slice();
+
+  const key=makeUniqueKey(data);
+  if(key && findDuplicate(key, selectedId)){ alert("고유키(작업일자+라인ID) 항목이 중복됩니다."); return; }
+
+  await idbPut("records",{id:selectedId, data, created_at:new Date().toISOString()});
+  toast("수정 저장");
+  clearForm();
+  await reloadList();
+});
+
+$("btnDelete")?.addEventListener("click", async ()=>{
+  if(!selectedId) return;
+  if(!confirm("삭제할까요?")) return;
+  await idbDel("records", selectedId);
+  toast("삭제했습니다");
+  clearForm();
+  await reloadList();
+});
+
+/* ===== 목록/검색/멀티삭제 ===== */
+async function loadRows(){ rows = await idbAll("records", true); }
+function updateBulkUI(){ const b=$("btnBulkDelete"); if(b) b.disabled = selectedIds.size===0; }
+$("btnBulkDelete")?.addEventListener("click", async ()=>{
+  if (selectedIds.size===0) return;
+  if (!confirm(`선택된 ${selectedIds.size}개 항목을 모두 삭제할까요?`)) return;
+  for (const id of selectedIds) await idbDel("records", id);
+  selectedIds.clear();
+  updateBulkUI();
+  toast("선택 항목 전체 삭제 완료");
+  clearForm();
+  await reloadList();
+});
+
+function rowSearchText(r){
+  const copy = Object.assign({}, r.data);
+  delete copy.photos;
+  return JSON.stringify(copy).toLowerCase();
+}
+
+function renderTable(){
+  const thead=$("theadRow"); if(!thead) return; thead.innerHTML="";
+  const tbody=$("tbl")?.querySelector("tbody"); if(!tbody) return; tbody.innerHTML="";
+
+  const thSel=document.createElement("th");
+  const master=document.createElement("input"); master.type="checkbox"; master.id="chkAll";
+  master.addEventListener("change", ()=>{
+    const checked=master.checked;
+    document.querySelectorAll("#tbl tbody input.rowchk").forEach(cb=>{
+      cb.checked=checked;
+      const id=cb._rowId;
+      if(checked) selectedIds.add(id); else selectedIds.delete(id);
+    });
+    updateBulkUI();
+  });
+  thSel.appendChild(master);
+  thead.appendChild(thSel);
+  thead.append(el("th",{},"사진"));
+
+  schema.forEach(f=> thead.append(el("th",{},f.label)));
+  thead.append(el("th",{},"존재시설물"));
+
+  const q = ($("q")?.value||"").toLowerCase();
+  (rows||[]).filter(r=>{
+    if (!q) return true;
+    return rowSearchText(r).includes(q);
+  }).forEach(r=>{
+    const tr=el("tr",{class:"hoverable"});
+    const tdSel=document.createElement("td");
+    const cb=document.createElement("input"); cb.type="checkbox"; cb.className="rowchk"; cb._rowId=r.id;
+    cb.checked = selectedIds.has(r.id);
+    cb.addEventListener("change", ()=>{
+      if(cb.checked) selectedIds.add(r.id); else selectedIds.delete(r.id);
+      updateBulkUI();
+    });
+    tdSel.appendChild(cb);
+    tr.appendChild(tdSel);
+
+    const tdPhoto = document.createElement("td");
+    const photos = r.data.photos||[];
+    if(photos.length){
+      tdPhoto.appendChild(el("img",{class:"rowthumb", src:photos[0].dataUrl}));
+      if(photos.length>1) tdPhoto.appendChild(el("span",{class:"muted",style:"font-size:10px;margin-left:2px"}, `+${photos.length-1}`));
+    }
+    tr.appendChild(tdPhoto);
+
+    schema.forEach(f=>{
+      let v=r.data[f.id];
+      if(v==null && f.id==="region2") v=[r.data[f.id+"_sido"], r.data[f.id+"_sigungu"]].filter(Boolean).join(" ");
+      tr.append(el("td",{}, (v==null?"":String(v)) ));
+    });
+
+    const s2 = r.data.__step2 || {};
+    tr.append(el("td",{}, s2.desc ? String(s2.desc) : ""));
+
+    tr.onclick=(ev)=>{
+      if (ev.target && (ev.target.classList.contains("rowchk") || ev.target.tagName==="IMG")) return;
+      document.querySelectorAll("#tbl tbody tr").forEach(x=>x.classList.remove("is-selected"));
+      tr.classList.add("is-selected");
+      selectedId=r.id;
+      $("btnUpdate").disabled=false;
+      $("btnDelete").disabled=false;
+      renderForm(); fillForm(r);
+      updateTMCoords(); // 저장 당시 X,Y가 없던 옛 기록도 위·경도로부터 다시 계산해 보여줌
+      renderStep2Form(); fillStep2Form(s2 || {});
+      currentPhotos = (r.data.photos||[]).slice();
+      renderPhotoThumbs();
+      window.scrollTo({top:0, behavior:"smooth"});
+    };
+    tbody.append(tr);
+  });
+}
+
+// roadWidth/gps_lat/gps_lon 필드는 renderForm()이 매번 새로 만들므로, 컨테이너에 위임 리스너를 한 번만 등록
+$("formArea")?.addEventListener("input", (e)=>{
+  if(!e.target) return;
+  if(e.target.id==="roadWidth") renderExistingFacilityDiagram();
+  if(e.target.id==="gps_lat" || e.target.id==="gps_lon") updateTMCoords();
+});
+
+$("q")?.addEventListener("input", renderTable);
+$("btnReload")?.addEventListener("click", ()=>reloadList());
+async function reloadList(){ await loadRows(); renderTable(); }
+
+/* ===================== 내보내기(엑셀 손상 0% 목표) ===================== */
+function _mimeFromName(name){
+  const low = String(name||"").toLowerCase();
+  if (low.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  if (low.endsWith(".csv"))  return "text/csv;charset=utf-8";
+  if (low.endsWith(".json")) return "application/json";
+  if (low.endsWith(".zip"))  return "application/zip";
+  return "application/octet-stream";
+}
+function _isZipBase64(b64){ return typeof b64==="string" && b64.slice(0,5)==="UEsDB"; }
+
+function getSafeTitleForFileName(s){
+  return (s||"GPR")
+    .replace(/[\\/:*?"<>|]+/g,"_")
+    .replace(/\s+/g,"_")
+    .slice(0,60) || "GPR";
+}
+
+function buildSheetData(){
+  const existCols = EXIST_FACILITIES.map(name => `${name}(m)`);
+  const header = [...schema.map(f => f.label), ...existCols, "특이사항", "사진수"];
+
+  const data = (rows || []).map(r => {
+    const main = schema.map(f => {
+      let v = r.data[f.id];
+      if (v == null && f.id === "region2") {
+        v = [r.data[f.id + "_sido"], r.data[f.id + "_sigungu"]].filter(Boolean).join(" ");
+      }
+      return v ?? "";
+    });
+
+    const s2 = r.data.__step2 || {};
+    const exist = s2.existing || {};
+    const existVals = EXIST_FACILITIES.map(name => {
+      const v = exist[name];
+      return (v === null || v === undefined) ? "" : v;
+    });
+
+    const desc = s2.desc || "";
+    const photoCount = (r.data.photos||[]).length;
+    return [...main, ...existVals, desc, photoCount];
+  });
+
+  return { header, data };
+}
+
+async function saveBase64OnCapacitor(base64, filename, mime){
+  if(!Filesystem || typeof Filesystem.writeFile !== "function") throw new Error("Capacitor Filesystem 없음");
+
+  const Dir = Filesystem.Directory || {};
+  const directory = Dir.Documents || "DOCUMENTS";
+  const folder = "gpr";
+  const path = `${folder}/${filename}`;
+
+  try{ await Filesystem.mkdir({ directory, path: folder, recursive:true }); }catch(_){}
+
+  await Filesystem.writeFile({
+    directory,
+    path,
+    data: base64,
+    recursive: true,
+    replace: true
+  });
+
+  if(String(filename).toLowerCase().endsWith(".xlsx")){
+    const read = await Filesystem.readFile({ directory, path });
+    const b64 = read?.data || "";
+    if(!_isZipBase64(b64)) throw new Error("XLSX 시그니처 불일치(저장 손상)");
+    XLSX.read(b64, { type:"base64" });
+  }
+
+  let uri = null;
+  try{
+    const got = await Filesystem.getUri({ directory, path });
+    uri = got?.uri || null;
+  }catch(_){}
+
+  if(uri && Share && typeof Share.share === "function"){
+    try{
+      await Share.share({
+        title: filename,
+        text: "GPR 관측기록 파일",
+        url: uri,
+        dialogTitle: "파일 공유/저장"
+      });
+      return { ok:true, via:"capacitor+share", note:path, uri };
+    }catch(e){
+      return { ok:true, via:"capacitor", note:path, uri };
+    }
+  }
+  return { ok:true, via:"capacitor", note:path, uri };
+}
+
+async function saveBlobOnWeb(blob, filename){
+  if(window.showSaveFilePicker){
+    try{
+      const handle = await showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description:"GPR 파일", accept:{
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"],
+          "text/csv":[".csv"],
+          "application/json":[".json"],
+          "application/zip":[".zip"]
+        }}],
+      });
+      const w = await handle.createWritable();
+      await w.write(blob);
+      await w.close();
+      return { ok:true, via:"FSA" };
+    }catch(err){
+      // 사용자가 저장 위치 선택 창에서 '취소'를 누른 경우, 다른 방식으로 재시도하지 않고
+      // 취소되었음을 그대로 알려준다(취소했는데 "저장 완료"로 표시되는 것을 방지).
+      if(err && (err.name==="AbortError")) return { ok:false, via:"cancelled" };
+    }
+  }
+
+  if(navigator.canShare){
+    try{
+      const f = new File([blob], filename, {type: blob.type || _mimeFromName(filename)});
+      if(navigator.canShare({files:[f]})){
+        await navigator.share({ files:[f], title: filename, text:"GPR 관측기록" });
+        return { ok:true, via:"share" };
+      }
+    }catch(_){}
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  // ⚠ 일부 모바일 브라우저/인앱 브라우저는 다운로드가 실제로 blob을 다 읽기 전에
+  // URL을 즉시 해제하면 파일이 잘리거나(엑셀이 "일부만 복구됨" 처럼 보임) 빈 파일로 저장되는 경우가 있어,
+  // 충분한 시간을 두고 나중에 해제한다.
+  setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(_){} }, 4000);
+  return { ok:true, via:"download" };
+}
+
+function toastExportResult(result, label){
+  if(result && result.via==="cancelled"){ toast(`${label} 저장을 취소했습니다`); return; }
+  toast(`${label} 저장 완료 (${result?.via||""})`);
+}
+
+async function buildWorkbookBase64(){
+  const {header, data} = buildSheetData();
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([header, ...data]);
+  XLSX.utils.book_append_sheet(wb, ws, "GPR");
+  return wb;
+}
+
+/* ===== 내보내기: XLSX ===== */
+$("btnExport")?.addEventListener("click", async ()=>{
+  try{
+    if(!(window.XLSX && XLSX.utils && XLSX.write)){
+      alert("로컬 XLSX 라이브러리를 찾을 수 없습니다.\n./lib/xlsx.full.min.js 확인");
+      return;
+    }
+    await reloadList();
+    if(rows.length===0){
+      alert("저장된 기록이 없어 내보낼 내용이 없습니다.\n\n※ 이 버튼은 '목록'에 이미 추가된 기록만 내보냅니다. 위 입력창에 값을 적었더라도 '추가' 버튼을 눌러 저장하지 않았다면 포함되지 않습니다. 목록에 행이 보이는지 먼저 확인해주세요.");
+      return;
+    }
+    if(!confirm(`저장된 기록 ${rows.length}개를 엑셀로 내보낼까요? (사진 제외)`)) return;
+
+    const today = new Date().toISOString().slice(0,10);
+    const title = (await getAppTitle().catch(()=>DEFAULT_TITLE)) || DEFAULT_TITLE;
+    const fileName = `${getSafeTitleForFileName(title)}_${today}.xlsx`;
+
+    const wb = await buildWorkbookBase64();
+    const base64 = XLSX.write(wb, { bookType:"xlsx", type:"base64" });
+    const mime = _mimeFromName(fileName);
+
+    let result;
+    if(isNative){
+      result = await saveBase64OnCapacitor(base64, fileName, mime);
+      toast(`엑셀 저장 완료 (장치저장${result.via==="capacitor+share" ? "+공유" : ""})`);
+    }else{
+      const u8 = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+      const blob = new Blob([u8], { type: mime });
+      result = await saveBlobOnWeb(blob, fileName);
+      toastExportResult(result, "엑셀");
+    }
+  }catch(e){
+    console.error("[EXPORT XLSX ERROR]", e);
+    alert("엑셀 내보내기 오류:\n" + (e?.message || e));
+  }
+});
+
+/* ===== 내보내기: CSV ===== */
+$("btnExportCSV")?.addEventListener("click", async ()=>{
+  try{
+    await reloadList();
+    if(rows.length===0){
+      alert("저장된 기록이 없어 내보낼 내용이 없습니다.\n\n※ 이 버튼은 '목록'에 이미 추가된 기록만 내보냅니다. 위 입력창에 값을 적었더라도 '추가' 버튼을 눌러 저장하지 않았다면 포함되지 않습니다. 목록에 행이 보이는지 먼저 확인해주세요.");
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0,10);
+    const title = (await getAppTitle().catch(()=>DEFAULT_TITLE)) || DEFAULT_TITLE;
+    const fileName = `${getSafeTitleForFileName(title)}_${today}.csv`;
+    const mime = _mimeFromName(fileName);
+
+    const {header, data} = buildSheetData();
+    const esc = v => {
+      const s=(v==null?"":String(v));
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    };
+    const csvCore=[header, ...data].map(row=>row.map(esc).join(",")).join("\r\n");
+    const csvText = "﻿" + csvCore;
+
+    if(isNative){
+      const base64 = btoa(unescape(encodeURIComponent(csvText)));
+      const result = await saveBase64OnCapacitor(base64, fileName, mime);
+      toast(`CSV 저장 완료 (장치저장${result.via==="capacitor+share" ? "+공유" : ""})`);
+    }else{
+      const blob=new Blob([csvText],{type: mime});
+      const result = await saveBlobOnWeb(blob, fileName);
+      toastExportResult(result, "CSV");
+    }
+  }catch(e){
+    console.error("[EXPORT CSV ERROR]", e);
+    alert("CSV 내보내기 오류:\n" + (e?.message || e));
+  }
+});
+
+/* ===== 내보내기: 사진 포함 ZIP ===== */
+$("btnExportZip")?.addEventListener("click", async ()=>{
+  try{
+    if(!(window.XLSX && XLSX.utils && XLSX.write)){
+      alert("로컬 XLSX 라이브러리를 찾을 수 없습니다.\n./lib/xlsx.full.min.js 확인");
+      return;
+    }
+    if(!window.JSZip){
+      alert("로컬 JSZip 라이브러리를 찾을 수 없습니다.\n./lib/jszip.min.js 확인");
+      return;
+    }
+    await reloadList();
+    if(rows.length===0){
+      alert("저장된 기록이 없어 내보낼 내용이 없습니다.\n\n※ 이 버튼은 '목록'에 이미 추가된 기록만 내보냅니다. 위 입력창에 값을 적었더라도 '추가' 버튼을 눌러 저장하지 않았다면 포함되지 않습니다. 목록에 행이 보이는지 먼저 확인해주세요.");
+      return;
+    }
+    const totalPhotos = rows.reduce((s,r)=> s + ((r.data.photos||[]).length), 0);
+    if(!confirm(`저장된 기록 ${rows.length}개 + 사진 ${totalPhotos}장을 ZIP으로 내보낼까요?`)) return;
+
+    const today = new Date().toISOString().slice(0,10);
+    const title = (await getAppTitle().catch(()=>DEFAULT_TITLE)) || DEFAULT_TITLE;
+    const baseName = `${getSafeTitleForFileName(title)}_${today}`;
+
+    const zip = new JSZip();
+    const wb = await buildWorkbookBase64();
+    const xlsxArray = XLSX.write(wb, { bookType:"xlsx", type:"array" });
+    zip.file(`${baseName}.xlsx`, xlsxArray);
+
+    const photosFolder = zip.folder("photos");
+    rows.forEach(r=>{
+      const photos = r.data.photos||[];
+      if(!photos.length) return;
+      const seq = r.data.seq || r.id;
+      const line = (r.data.line||"").toString().replace(/[\\/:*?"<>|]+/g,"_");
+      const folderName = getSafeTitleForFileName(`${seq}_${line||r.id}`);
+      const rf = photosFolder.folder(folderName);
+      photos.forEach((p,idx)=>{
+        const base64 = (p.dataUrl.split(",")[1])||"";
+        const safeName = getSafeTitleForFileName((p.name||"photo").replace(/\.[a-zA-Z0-9]+$/,""));
+        rf.file(`${idx+1}_${safeName}.jpg`, base64, {base64:true});
+      });
+    });
+
+    const fileName = `${baseName}.zip`;
+    if(isNative){
+      const base64 = await zip.generateAsync({type:"base64"});
+      const result = await saveBase64OnCapacitor(base64, fileName, "application/zip");
+      toast(`ZIP 저장 완료 (장치저장${result.via==="capacitor+share" ? "+공유" : ""})`);
+    }else{
+      const blob = await zip.generateAsync({type:"blob"});
+      const result = await saveBlobOnWeb(blob, fileName);
+      toastExportResult(result, "ZIP");
+    }
+  }catch(e){
+    console.error("[EXPORT ZIP ERROR]", e);
+    alert("ZIP 내보내기 오류:\n" + (e?.message || e));
+  }
+});
+
+/* ===== JSON 백업 내보내기 / 가져오기 (기기 간 자료 이전) ===== */
+$("btnBackupExport")?.addEventListener("click", async ()=>{
+  try{
+    await reloadList();
+    const payload = {
+      app: "GPR-Recorder",
+      version: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      schema,
+      records: rows
+    };
+    const text = JSON.stringify(payload);
+    const fileName = `GPR_backup_${new Date().toISOString().slice(0,10)}.json`;
+
+    if(isNative){
+      const base64 = btoa(unescape(encodeURIComponent(text)));
+      const result = await saveBase64OnCapacitor(base64, fileName, "application/json");
+      toast(`백업 저장 완료 (장치저장${result.via==="capacitor+share" ? "+공유" : ""})`);
+    }else{
+      const blob = new Blob([text], {type:"application/json"});
+      const result = await saveBlobOnWeb(blob, fileName);
+      toastExportResult(result, "백업");
+    }
+  }catch(e){
+    console.error("[BACKUP EXPORT ERROR]", e);
+    alert("백업 내보내기 오류:\n" + (e?.message || e));
+  }
+});
+
+$("btnBackupImportBtn")?.addEventListener("click", ()=> $("btnBackupImportFile").click());
+$("btnBackupImportFile")?.addEventListener("change", async (e)=>{
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    const incoming = Array.isArray(payload.records) ? payload.records : [];
+    if(!incoming.length){ toast("가져올 기록이 없습니다"); return; }
+    if(!confirm(`백업 파일에서 ${incoming.length}개 기록을 확인했습니다.\n동일한 작업일자+라인ID 기록은 건너뛰고 새 기록만 추가합니다. 계속할까요?`)) return;
+
+    await loadRows();
+    let added=0, skipped=0;
+    for(const rec of incoming){
+      const data = rec && rec.data ? rec.data : null;
+      if(!data) { skipped++; continue; }
+      const key = makeUniqueKey(data);
+      if(key && findDuplicate(key)){ skipped++; continue; }
+      await idbPut("records", { id: uid(), data, created_at: rec.created_at || new Date().toISOString() });
+      rows.push({ id:"tmp", data }); // 로컬 중복검사용 임시 반영(다음 루프에서 findDuplicate가 방금 추가분도 인지)
+      added++;
+    }
+    toast(`가져오기 완료: 추가 ${added} / 중복제외 ${skipped}`);
+    await reloadList();
+  }catch(err){
+    console.error("[BACKUP IMPORT ERROR]", err);
+    alert("백업 가져오기 오류:\n" + (err?.message || err));
+  }
+});
+
+/* ===== 환경 점검 ===== */
+async function _envInfo(){
+  const isPWA = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
+  let storageMB = null;
+  try{
+    if(navigator.storage && navigator.storage.estimate){
+      const est = await navigator.storage.estimate();
+      storageMB = { usage: Math.round((est.usage||0)/1024/1024*10)/10, quota: Math.round((est.quota||0)/1024/1024*10)/10 };
+    }
+  }catch(_){}
+  return {
+    page: location.href,
+    protocol: location.protocol,
+    platform: (Cap.getPlatform?.() || Cap.platform || "web"),
+    isNative: isNative,
+    pwa: !!isPWA,
+    secureContext: !!window.isSecureContext,
+    hasGeo: !!navigator.geolocation,
+    hasFS: !!Filesystem,
+    hasShare: !!Share,
+    hasFSA: !!window.showSaveFilePicker,
+    hasOPFS: !!(navigator.storage && navigator.storage.getDirectory),
+    canShareFiles: !!(navigator.canShare && (()=>{ try{return navigator.canShare({files:[new File(["a"],"a.txt",{type:"text/plain"})]});}catch(_){return false;} })()),
+    hasXLSX: !!(window.XLSX && XLSX.utils && XLSX.write),
+    hasJSZip: !!window.JSZip,
+    hasSW: ("serviceWorker" in navigator),
+    storageMB,
+    origin: location.origin
+  };
+}
+$("btnEnv")?.addEventListener("click", async ()=>{
+  const env = await _envInfo();
+  const fileWarn = env.protocol==="file:" ? "\n⚠ file://로 직접 열려 있습니다. 위치(GPS) 기능이 제한되고, 브라우저별로 저장공간이 분리될 수 있습니다.\n   → 폴더를 로컬 웹서버로 열거나 앱으로 설치하는 것을 권장합니다." : "";
+  const txt =
+`페이지: ${env.page}
+프로토콜: ${env.protocol}${fileWarn}
+플랫폼: ${env.platform}
+네이티브: ${env.isNative}
+PWA(설치됨): ${env.pwa}
+보안 컨텍스트(HTTPS/로컬): ${env.secureContext}
+
+위치(GPS) 지원: ${env.hasGeo}
+Capacitor Filesystem: ${env.hasFS}
+Capacitor Share: ${env.hasShare}
+
+File System Access(API): ${env.hasFSA}
+OPFS(Origin Private FS): ${env.hasOPFS}
+Web Share(파일공유): ${env.canShareFiles}
+Service Worker 지원: ${env.hasSW}
+
+XLSX 라이브러리(로컬): ${env.hasXLSX}
+JSZip 라이브러리(로컬): ${env.hasJSZip}
+저장공간 사용량: ${env.storageMB ? `${env.storageMB.usage}MB / ${env.storageMB.quota}MB` : "확인 불가"}
+origin: ${env.origin}`;
+  $("envText").textContent = txt;
+  $("envModal").classList.add("show");
+});
+$("btnEnvClose")?.addEventListener("click", ()=> $("envModal").classList.remove("show"));
+
+/* ===== Service Worker(오프라인 캐시) 등록 ===== */
+if("serviceWorker" in navigator && location.protocol !== "file:"){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("./sw.js").catch(err=> console.warn("SW 등록 실패", err));
+  });
+}
+
+/* ===== 초기 실행 ===== */
+(async function init(){
+  try{
+    applyTheme(await getTheme());
+    applyTitle(await getAppTitle());
+  }catch(_){}
+  setBadge();
+
+  const v = await idbGet("schema","current");
+  const defaultIds = defaultSchema.map(f=>f.id).join(",");
+  const storedIds = (v && Array.isArray(v.value)) ? v.value.map(f=>f.id).join(",") : null;
+  if(!v || storedIds !== defaultIds){
+    schema = defaultSchema.slice();
+    await idbPut("schema", {id:"current", value:schema});
+  } else {
+    schema = v.value;
+  }
+
+  renderForm();
+  renderStep2Form();
+  renderPhotoThumbs();
+  await reloadList();
+})();
+</script>
+</body>
+</html>

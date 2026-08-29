@@ -1,0 +1,15 @@
+{
+  "name": "지표투과레이더(GPR) 관측기록 프로그램",
+  "short_name": "GPR 기록",
+  "description": "오프라인 GPR 현장 관측기록 작성 및 엑셀 내보내기",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1f6",
+  "theme_color": "#2563eb",
+  "orientation": "any",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
