@@ -160,7 +160,7 @@ tr.is-selected td{background:color-mix(in srgb, var(--brand) 18%, var(--card)) !
 </header>
 
 <div class="wrap">
-  <p class="tip">💡 이 프로그램은 인터넷 연결 없이 동작합니다. 기록은 이 기기(브라우저)에만 저장되므로, PC와 휴대폰 자료를 합치려면 아래 <b>「JSON 백업」</b>으로 내보낸 파일을 다른 기기에서 불러오세요. 처음 한 번은 폴더를 웹서버로 열어 <b>홈 화면/앱에 추가</b>를 해두면 이후 오프라인에서도 아이콘으로 바로 실행되고 위치(GPS) 기능도 안정적으로 동작합니다.</p>
+  <p class="tip">💡 이 프로그램은 인터넷 연결 없이 동작합니다. 기록은 이 기기(브라우저)에만 저장되므로, PC와 휴대폰 자료를 합치려면 아래 <b>「엑셀 내보내기」</b>로 받은 파일을 다른 기기에서 <b>「엑셀 불러오기」</b>로 불러오세요(사진 제외). 사진까지 옮기려면 <b>「사진 포함 ZIP 내보내기」</b>를 사용하세요. 처음 한 번은 폴더를 웹서버로 열어 <b>홈 화면/앱에 추가</b>를 해두면 이후 오프라인에서도 아이콘으로 바로 실행되고 위치(GPS) 기능도 안정적으로 동작합니다.</p>
 
   <!-- 입력 폼 (JS가 섹션별 카드로 렌더링) -->
   <div id="formArea"></div>
@@ -183,12 +183,11 @@ tr.is-selected td{background:color-mix(in srgb, var(--brand) 18%, var(--card)) !
     <div class="row" style="justify-content:space-between;align-items:center">
       <div>
         <strong>⑥ 존재시설물 · 설명</strong>
-        <span class="muted">선택/거리 입력 시 아래 설명 및 위치도가 자동 작성됩니다. ③ 측정결과의 대상시설물·거리는 여기에 자동 반영되고, 위치도에서 ★로 강조됩니다.</span>
+        <span class="muted">③ 측정결과의 대상시설물·거리를 입력하면 여기에 자동 반영되고 위치도에서 ★로 강조됩니다. 체크 내용과 위치도는 추가/수정 후에도 그대로 유지되며, 작업일자를 바꾸면 자동으로 초기화됩니다.</span>
       </div>
     </div>
     <div id="s2Diagram" class="card" style="margin-top:10px;background:var(--card-2)"></div>
     <div id="step2Form" class="grid g2" style="margin-top:8px"></div>
-    <p class="muted" style="margin:6px 0 0 2px">항목 선택 없이도 입력 가능하며, 추가/수정 시 함께 저장됩니다.</p>
   </div>
 
   <!-- 액션 버튼 -->
@@ -216,20 +215,16 @@ tr.is-selected td{background:color-mix(in srgb, var(--brand) 18%, var(--card)) !
     </table>
   </div>
 
-  <!-- 내보내기 / 백업 -->
+  <!-- 내보내기 -->
   <div class="card">
-    <div style="margin-bottom:8px"><strong>⑦ 내보내기 · 백업</strong></div>
+    <div style="margin-bottom:8px"><strong>⑦ 내보내기</strong></div>
     <div class="row">
       <button id="btnExport">엑셀 내보내기(.xlsx)</button>
-      <button id="btnExportCSV" class="secondary">CSV 내보내기</button>
+      <button id="btnImportXlsxBtn" class="secondary">엑셀 불러오기</button>
+      <input type="file" id="btnImportXlsxFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden"/>
       <button id="btnExportZip" class="secondary">사진 포함 ZIP 내보내기</button>
     </div>
-    <div class="row" style="margin-top:8px">
-      <button id="btnBackupExport" class="secondary">JSON 백업 내보내기</button>
-      <button id="btnBackupImportBtn" class="secondary">JSON 백업 가져오기</button>
-      <input type="file" id="btnBackupImportFile" accept="application/json,.json" class="hidden"/>
-    </div>
-    <p class="muted" style="margin:8px 2px 0">※ 엑셀/CSV는 사진을 포함하지 않습니다(파일 손상 방지). 사진까지 옮기려면 ZIP 또는 JSON 백업을 사용하세요.</p>
+    <p class="muted" style="margin:8px 2px 0">※ 엑셀은 사진을 포함하지 않습니다(파일 손상 방지). 사진까지 옮기려면 ZIP 내보내기를 사용하세요. 엑셀 불러오기는 문서 내용만 복원되며 사진은 함께 불러올 수 없습니다.</p>
   </div>
 </div>
 
@@ -541,12 +536,7 @@ function renderForm(){
     card.append(grid);
     if(secKey==="basic"){
       card.append(el("div",{class:"row", style:"margin-top:8px"}, [
-        el("span",{class:"muted"}, "지역·프로젝트/현장명·발주처·조사자·날씨·기온·측선 시작/종료·도로 폭은 추가/수정 후에도 계속 유지됩니다. 작업일자를 다른 날짜로 바꾸면 자동으로 초기화됩니다.")
-      ]));
-    }
-    if(secKey==="equip"){
-      card.append(el("div",{class:"row", style:"margin-top:8px"}, [
-        el("span",{class:"muted"}, "날씨·기온·측선 시작/종료·도로 폭도 추가/수정 후 계속 유지됩니다. 작업일자를 바꾸면 함께 초기화됩니다.")
+        el("span",{class:"muted"}, "지역·프로젝트/현장명·발주처·조사자와 ② 날씨·기온·관측 시작/종료·도로 폭은 추가/수정 후에도 계속 유지됩니다. 작업일자를 다른 날짜로 바꾸면 자동으로 초기화됩니다.")
       ]));
     }
     if(secKey==="extra"){
@@ -896,7 +886,8 @@ function clearForm(){
   $("btnUpdate").disabled=true;
   $("btnDelete").disabled=true;
   lastLinkedTarget = null; // 대상시설물이 비워졌으니 자동연동 기준값도 초기화
-  clearStep2Form();
+  // 존재시설물 체크/거리와 위치도는 여기서 지우지 않는다 — 같은 구간에서 여러 측선을 이어 입력할 때
+  // 주변 매설물 구성이 대부분 같으므로, 사용자가 직접 바꾸거나(체크박스/거리) 작업일자가 바뀔 때만 초기화한다.
   currentPhotos=[]; renderPhotoThumbs();
   document.querySelectorAll("#tbl tbody tr").forEach(x=>x.classList.remove("is-selected"));
 }
@@ -919,7 +910,8 @@ function handleDateChanged(newVal){
       $("region2_sido").classList.remove("field-error");
       $("region2_sido").dispatchEvent(new Event("change"));
     }
-    renderExistingFacilityDiagram();
+    lastLinkedTarget = null;
+    clearStep2Form(); // 새 작업일자 = 새 구간으로 보고 존재시설물 체크·위치도도 함께 초기화
     toast("작업일자가 바뀌어 기본정보를 초기화했습니다");
   }
   lastDateValue = newVal;
@@ -1122,8 +1114,6 @@ async function reloadList(){ await loadRows(); renderTable(); }
 function _mimeFromName(name){
   const low = String(name||"").toLowerCase();
   if (low.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  if (low.endsWith(".csv"))  return "text/csv;charset=utf-8";
-  if (low.endsWith(".json")) return "application/json";
   if (low.endsWith(".zip"))  return "application/zip";
   return "application/octet-stream";
 }
@@ -1138,15 +1128,23 @@ function getSafeTitleForFileName(s){
 
 function buildSheetData(){
   const existCols = EXIST_FACILITIES.map(name => `${name}(m)`);
-  const header = [...schema.map(f => f.label), ...existCols, "특이사항", "사진수"];
+  // 지역(regionkr)은 "시/도"·"시/군/구" 두 열로 나눠 내보낸다 — 하나로 합쳐 내보내면
+  // 엑셀 불러오기 때 다시 정확히 둘로 분리할 방법이 없기 때문(시/군/구 이름에 공백이 섞여 있을 수 있음).
+  const header = [];
+  schema.forEach(f=>{
+    if(f.type==="regionkr") header.push("시/도","시/군/구");
+    else header.push(f.label);
+  });
+  header.push(...existCols, "특이사항", "사진수");
 
   const data = (rows || []).map(r => {
-    const main = schema.map(f => {
-      let v = r.data[f.id];
-      if (v == null && f.id === "region2") {
-        v = [r.data[f.id + "_sido"], r.data[f.id + "_sigungu"]].filter(Boolean).join(" ");
+    const main = [];
+    schema.forEach(f=>{
+      if(f.type==="regionkr"){
+        main.push(r.data[f.id+"_sido"] || "", r.data[f.id+"_sigungu"] || "");
+      } else {
+        main.push(r.data[f.id] ?? "");
       }
-      return v ?? "";
     });
 
     const s2 = r.data.__step2 || {};
@@ -1218,8 +1216,6 @@ async function saveBlobOnWeb(blob, filename){
         suggestedName: filename,
         types: [{ description:"GPR 파일", accept:{
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":[".xlsx"],
-          "text/csv":[".csv"],
-          "application/json":[".json"],
           "application/zip":[".zip"]
         }}],
       });
@@ -1303,43 +1299,6 @@ $("btnExport")?.addEventListener("click", async ()=>{
   }
 });
 
-/* ===== 내보내기: CSV ===== */
-$("btnExportCSV")?.addEventListener("click", async ()=>{
-  try{
-    await reloadList();
-    if(rows.length===0){
-      alert("저장된 기록이 없어 내보낼 내용이 없습니다.\n\n※ 이 버튼은 '목록'에 이미 추가된 기록만 내보냅니다. 위 입력창에 값을 적었더라도 '추가' 버튼을 눌러 저장하지 않았다면 포함되지 않습니다. 목록에 행이 보이는지 먼저 확인해주세요.");
-      return;
-    }
-
-    const today = new Date().toISOString().slice(0,10);
-    const title = (await getAppTitle().catch(()=>DEFAULT_TITLE)) || DEFAULT_TITLE;
-    const fileName = `${getSafeTitleForFileName(title)}_${today}.csv`;
-    const mime = _mimeFromName(fileName);
-
-    const {header, data} = buildSheetData();
-    const esc = v => {
-      const s=(v==null?"":String(v));
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-    };
-    const csvCore=[header, ...data].map(row=>row.map(esc).join(",")).join("\r\n");
-    const csvText = "﻿" + csvCore;
-
-    if(isNative){
-      const base64 = btoa(unescape(encodeURIComponent(csvText)));
-      const result = await saveBase64OnCapacitor(base64, fileName, mime);
-      toast(`CSV 저장 완료 (장치저장${result.via==="capacitor+share" ? "+공유" : ""})`);
-    }else{
-      const blob=new Blob([csvText],{type: mime});
-      const result = await saveBlobOnWeb(blob, fileName);
-      toastExportResult(result, "CSV");
-    }
-  }catch(e){
-    console.error("[EXPORT CSV ERROR]", e);
-    alert("CSV 내보내기 오류:\n" + (e?.message || e));
-  }
-});
-
 /* ===== 내보내기: 사진 포함 ZIP ===== */
 $("btnExportZip")?.addEventListener("click", async ()=>{
   try{
@@ -1399,63 +1358,85 @@ $("btnExportZip")?.addEventListener("click", async ()=>{
   }
 });
 
-/* ===== JSON 백업 내보내기 / 가져오기 (기기 간 자료 이전) ===== */
-$("btnBackupExport")?.addEventListener("click", async ()=>{
-  try{
-    await reloadList();
-    const payload = {
-      app: "GPR-Recorder",
-      version: APP_VERSION,
-      exportedAt: new Date().toISOString(),
-      schema,
-      records: rows
-    };
-    const text = JSON.stringify(payload);
-    const fileName = `GPR_backup_${new Date().toISOString().slice(0,10)}.json`;
-
-    if(isNative){
-      const base64 = btoa(unescape(encodeURIComponent(text)));
-      const result = await saveBase64OnCapacitor(base64, fileName, "application/json");
-      toast(`백업 저장 완료 (장치저장${result.via==="capacitor+share" ? "+공유" : ""})`);
-    }else{
-      const blob = new Blob([text], {type:"application/json"});
-      const result = await saveBlobOnWeb(blob, fileName);
-      toastExportResult(result, "백업");
-    }
-  }catch(e){
-    console.error("[BACKUP EXPORT ERROR]", e);
-    alert("백업 내보내기 오류:\n" + (e?.message || e));
-  }
-});
-
-$("btnBackupImportBtn")?.addEventListener("click", ()=> $("btnBackupImportFile").click());
-$("btnBackupImportFile")?.addEventListener("change", async (e)=>{
+/* ===== 엑셀 불러오기 (기기 간 자료 이전, 사진 제외) =====
+   반드시 이 프로그램의 "엑셀 내보내기"로 받은 파일(같은 열 구성)만 정상적으로 불러올 수 있다.
+   엑셀에는 사진이 저장되지 않으므로, 사진은 이 방법으로 함께 불러올 수 없다(ZIP 내보내기로만 보관). */
+$("btnImportXlsxBtn")?.addEventListener("click", ()=> $("btnImportXlsxFile").click());
+$("btnImportXlsxFile")?.addEventListener("change", async (e)=>{
   const file = e.target.files?.[0];
   e.target.value = "";
   if(!file) return;
   try{
-    const text = await file.text();
-    const payload = JSON.parse(text);
-    const incoming = Array.isArray(payload.records) ? payload.records : [];
-    if(!incoming.length){ toast("가져올 기록이 없습니다"); return; }
-    if(!confirm(`백업 파일에서 ${incoming.length}개 기록을 확인했습니다.\n동일한 작업일자+라인ID 기록은 건너뛰고 새 기록만 추가합니다. 계속할까요?`)) return;
+    if(!(window.XLSX && XLSX.utils)){
+      alert("로컬 XLSX 라이브러리를 찾을 수 없습니다.\n./lib/xlsx.full.min.js 확인");
+      return;
+    }
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type:"array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
+    if(!aoa.length){ toast("가져올 내용이 없습니다"); return; }
+
+    const header = aoa[0].map(h => String(h||"").trim());
+    const idx = {};
+    header.forEach((h,i)=>{ if(!(h in idx)) idx[h]=i; });
+
+    const missingCols = [];
+    schema.forEach(f=>{
+      if(f.type==="regionkr"){
+        if(!("시/도" in idx)) missingCols.push("시/도");
+        if(!("시/군/구" in idx)) missingCols.push("시/군/구");
+      } else if(!(f.label in idx)){
+        missingCols.push(f.label);
+      }
+    });
+    if(missingCols.length){
+      alert("엑셀 파일의 열 구성이 현재 양식과 달라 가져올 수 없습니다(이 프로그램의 '엑셀 내보내기'로 받은 파일이어야 합니다).\n\n누락된 열: " + missingCols.join(", "));
+      return;
+    }
+
+    const bodyRows = aoa.slice(1).filter(row => row.some(v => String(v||"").trim()!==""));
+    if(!bodyRows.length){ toast("가져올 기록이 없습니다"); return; }
+    if(!confirm(`엑셀 파일에서 ${bodyRows.length}개 행을 확인했습니다.\n동일한 작업일자+라인ID 기록은 건너뛰고 새 기록만 추가합니다.\n(사진은 엑셀에 포함되지 않아 함께 불러올 수 없습니다) 계속할까요?`)) return;
 
     await loadRows();
-    let added=0, skipped=0;
-    for(const rec of incoming){
-      const data = rec && rec.data ? rec.data : null;
-      if(!data) { skipped++; continue; }
+    let added=0, skipped=0, invalid=0;
+    for(const row of bodyRows){
+      const data = {};
+      schema.forEach(f=>{
+        if(f.type==="regionkr"){
+          data[f.id+"_sido"] = String(row[idx["시/도"]] ?? "").trim();
+          data[f.id+"_sigungu"] = String(row[idx["시/군/구"]] ?? "").trim();
+        } else {
+          data[f.id] = String(row[idx[f.label]] ?? "").trim();
+        }
+      });
+      if(!data.date || !data.line){ invalid++; continue; } // 작업일자·라인ID 없는 행은 건너뜀
+
+      const existing = {};
+      EXIST_FACILITIES.forEach(name=>{
+        const col = `${name}(m)`;
+        if(!(col in idx)) return;
+        const raw = String(row[idx[col]] ?? "").trim();
+        if(raw!=="" && !isNaN(Number(raw))) existing[name] = Number(raw);
+      });
+      data.__step2 = {
+        existing,
+        desc: ("특이사항" in idx) ? String(row[idx["특이사항"]] ?? "").trim() : ""
+      };
+      data.photos = [];
+
       const key = makeUniqueKey(data);
       if(key && findDuplicate(key)){ skipped++; continue; }
-      await idbPut("records", { id: uid(), data, created_at: rec.created_at || new Date().toISOString() });
+      await idbPut("records", { id: uid(), data, created_at: new Date().toISOString() });
       rows.push({ id:"tmp", data }); // 로컬 중복검사용 임시 반영(다음 루프에서 findDuplicate가 방금 추가분도 인지)
       added++;
     }
-    toast(`가져오기 완료: 추가 ${added} / 중복제외 ${skipped}`);
+    toast(`가져오기 완료: 추가 ${added} / 중복제외 ${skipped}${invalid?` / 형식오류 ${invalid}`:""}`);
     await reloadList();
   }catch(err){
-    console.error("[BACKUP IMPORT ERROR]", err);
-    alert("백업 가져오기 오류:\n" + (err?.message || err));
+    console.error("[XLSX IMPORT ERROR]", err);
+    alert("엑셀 가져오기 오류:\n" + (err?.message || err));
   }
 });
 
