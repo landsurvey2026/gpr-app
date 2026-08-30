@@ -543,11 +543,13 @@ function renderForm(){
     fields.forEach(f=>{ const w=buildField(f); if(w) grid.append(w); });
     card.append(grid);
     if(secKey==="basic"){
-      const clearBasicBtn = el("button",{type:"button", class:"secondary small"}, "기본정보 초기화");
-      clearBasicBtn.addEventListener("click", clearBasicInfo);
-      card.append(el("div",{class:"row", style:"margin-top:8px;justify-content:space-between"}, [
-        el("span",{class:"muted"}, "지역·프로젝트/현장명·발주처는 추가/수정 후에도 계속 유지됩니다. 새 현장으로 바꿀 때만 초기화하세요."),
-        clearBasicBtn
+      card.append(el("div",{class:"row", style:"margin-top:8px"}, [
+        el("span",{class:"muted"}, "지역·프로젝트/현장명·발주처·조사자·날씨·기온·측선 시작/종료·도로 폭은 추가/수정 후에도 계속 유지됩니다. 작업일자를 다른 날짜로 바꾸면 자동으로 초기화됩니다.")
+      ]));
+    }
+    if(secKey==="equip"){
+      card.append(el("div",{class:"row", style:"margin-top:8px"}, [
+        el("span",{class:"muted"}, "날씨·기온·측선 시작/종료·도로 폭도 추가/수정 후 계속 유지됩니다. 작업일자를 바꾸면 함께 초기화됩니다.")
       ]));
     }
     if(secKey==="extra"){
@@ -566,6 +568,7 @@ function renderForm(){
     }
     area.append(card);
   });
+  syncLastDateValue();
 }
 
 /* ===== Step2: 존재시설물 ===== */
@@ -841,9 +844,10 @@ function validateRequired(){
   }
   return missing;
 }
-// 여러 기록을 이어서 입력할 때 매번 다시 치지 않도록, 아래 필드는 일반 초기화에서 제외한다.
-// (지역/프로젝트·현장명/발주처는 "기본정보 초기화" 버튼을 눌러야만 지워짐 — clearBasicInfo 참고)
-const PRESERVE_ON_CLEAR = new Set(["project","client"]);
+// 같은 작업일자 안에서 여러 측선(라인)을 이어서 입력할 때 매번 다시 치지 않도록,
+// 아래 필드는 "추가"/"수정 저장"이나 "입력 초기화"로는 지워지지 않고 유지된다.
+// 대신 작업일자(date)를 다른 날짜로 바꾸면(다음날 작업 등) 자동으로 함께 초기화된다. → handleDateChanged 참고
+const PRESERVE_ON_CLEAR = new Set(["project","client","inspector","date","weather","temp","staStart","staEnd","roadWidth"]);
 function clearForm(){
   schema.forEach(f=>{
     if(f.type==="regionkr") return; // region2(지역)도 여기서는 초기화하지 않음
@@ -857,15 +861,29 @@ function clearForm(){
   currentPhotos=[]; renderPhotoThumbs();
   document.querySelectorAll("#tbl tbody tr").forEach(x=>x.classList.remove("is-selected"));
 }
-function clearBasicInfo(){
-  if($("project")) $("project").value="";
-  if($("client")) $("client").value="";
-  if($("region2_sido")){
-    $("region2_sido").value="";
-    $("region2_sido").classList.remove("field-error");
-    $("region2_sido").dispatchEvent(new Event("change"));
+
+// 작업일자 변경으로 유지되던 기본정보를 초기화(날짜 필드 자신은 그대로 둠)
+let lastDateValue = "";
+function syncLastDateValue(){ lastDateValue = $("date")?.value || ""; }
+function handleDateChanged(newVal){
+  if(lastDateValue && newVal && newVal !== lastDateValue){
+    if($("project")) $("project").value="";
+    if($("client")) $("client").value="";
+    if($("inspector")) $("inspector").value="";
+    if($("weather")) $("weather").value="";
+    if($("temp")) $("temp").value="";
+    if($("staStart")) $("staStart").value="";
+    if($("staEnd")) $("staEnd").value="";
+    if($("roadWidth")) $("roadWidth").value="";
+    if($("region2_sido")){
+      $("region2_sido").value="";
+      $("region2_sido").classList.remove("field-error");
+      $("region2_sido").dispatchEvent(new Event("change"));
+    }
+    renderExistingFacilityDiagram();
+    toast("작업일자가 바뀌어 기본정보를 초기화했습니다");
   }
-  toast("기본정보(지역·프로젝트·발주처)를 초기화했습니다");
+  lastDateValue = newVal;
 }
 $("btnClearForm")?.addEventListener("click", clearForm);
 
@@ -1016,6 +1034,7 @@ function renderTable(){
       $("btnUpdate").disabled=false;
       $("btnDelete").disabled=false;
       renderForm(); fillForm(r);
+      syncLastDateValue(); // 이 기록의 실제 작업일자를 기준값으로 맞춰, 이후 수정 시 불필요한 초기화가 일어나지 않게 함
       updateTMCoords(); // 저장 당시 X,Y가 없던 옛 기록도 위·경도로부터 다시 계산해 보여줌
       renderStep2Form(); fillStep2Form(s2 || {});
       currentPhotos = (r.data.photos||[]).slice();
@@ -1031,6 +1050,10 @@ $("formArea")?.addEventListener("input", (e)=>{
   if(!e.target) return;
   if(e.target.id==="roadWidth") renderExistingFacilityDiagram();
   if(e.target.id==="gps_lat" || e.target.id==="gps_lon") updateTMCoords();
+});
+$("formArea")?.addEventListener("change", (e)=>{
+  if(!e.target) return;
+  if(e.target.id==="date") handleDateChanged(e.target.value);
 });
 
 $("q")?.addEventListener("input", renderTable);
