@@ -183,7 +183,7 @@ tr.is-selected td{background:color-mix(in srgb, var(--brand) 18%, var(--card)) !
     <div class="row" style="justify-content:space-between;align-items:center">
       <div>
         <strong>⑥ 존재시설물 · 설명</strong>
-        <span class="muted">선택/거리 입력 시 아래 설명 및 위치도가 자동 작성됩니다</span>
+        <span class="muted">선택/거리 입력 시 아래 설명 및 위치도가 자동 작성됩니다. ③ 측정결과의 대상시설물·거리는 여기에 자동 반영되고, 위치도에서 ★로 강조됩니다.</span>
       </div>
     </div>
     <div id="s2Diagram" class="card" style="margin-top:10px;background:var(--card-2)"></div>
@@ -346,15 +346,12 @@ const defaultSchema = [
 
   {id:"weather",label:"날씨",type:"select",required:true,options:["맑음","구름많음","흐림","비","눈","바람 강함"], section:"equip"},
   {id:"temp",label:"기온(°C)",type:"number",required:true,min:-40,max:60, section:"equip"},
-  {id:"equipment",label:"GPR 장비명/모델",type:"text", section:"equip"},
-  {id:"antennaFreq",label:"안테나 주파수(MHz)",type:"number",min:0,max:5000, section:"equip"},
   {id:"epsilon",label:"유전율",type:"number",required:true,min:1,max:100, section:"equip"},
   {id:"method",label:"작업방법",type:"select",required:true,options:["횡단","종단","병행","기타"], section:"equip"},
-  {id:"scanInterval",label:"스캔간격(cm)",type:"number",min:0,max:1000, section:"equip"},
-  {id:"direction",label:"측정방향",type:"text", section:"equip"},
-  {id:"staStart",label:"측선 시작(STA)",type:"text", section:"equip"},
-  {id:"staEnd",label:"측선 종료(STA)",type:"text", section:"equip"},
-  {id:"roadWidth",label:"도로 폭(측선 전체 길이, m)",type:"number",min:0,max:10000, section:"equip", hint:"⑥ 존재시설물 위치도의 축척 기준으로 사용됩니다"},
+  {id:"direction",label:"측정방향",type:"select",options:["정방향","역방향"], section:"equip"},
+  {id:"staStart",label:"관측시작(STA)",type:"text", section:"equip"},
+  {id:"staEnd",label:"관측종료(END)",type:"text", section:"equip"},
+  {id:"roadWidth",label:"도로 폭(m)",type:"number",min:0,max:10000, section:"equip", hint:"⑥ 존재시설물 위치도의 축척 기준으로 사용됩니다"},
 
   {id:"target",label:"대상시설물",type:"select",required:true,options:[...FACILITIES,"기타"], section:"result"},
   {id:"depth",label:"심도(m)",type:"number",required:true,min:0,max:30, section:"result"},
@@ -614,11 +611,47 @@ function updateDescFromExisting(){
   renderExistingFacilityDiagram();
 }
 
+/* ===== 측정결과(대상시설물/거리) → 존재시설물 자동 반영 =====
+   대상시설물은 "지금 이 지점에서 실제로 측정 중인 시설물(작업시설물)"이므로,
+   당연히 존재시설물이기도 하다. 매번 체크박스를 따로 누르지 않도록 자동으로 체크+거리를 채워준다. */
+let lastLinkedTarget = null; // { name, distance } — 우리가 자동으로 채워넣은 값(사용자가 그 뒤 직접 고쳤는지 판단하는 기준)
+function syncTargetToExisting(){
+  const name = $("target")?.value || "";
+  const distRaw = ($("distance")?.value || "").toString().trim();
+
+  // 대상시설물이 바뀌었다면, 이전에 자동으로 채워뒀던 항목은(사용자가 그 사이 직접 건드리지 않았을 때만) 해제
+  if(lastLinkedTarget && lastLinkedTarget.name && lastLinkedTarget.name !== name){
+    const prevCb = document.getElementById(`s2_exist_${lastLinkedTarget.name}`);
+    const prevDist = document.getElementById(`s2_exist_${lastLinkedTarget.name}_dist`);
+    if(prevCb && prevCb.checked && (prevDist?.value||"") === (lastLinkedTarget.distance||"")){
+      prevCb.checked = false;
+      if(prevDist) prevDist.value = "";
+    }
+  }
+
+  if(name && EXIST_FACILITIES.includes(name)){
+    const cb = document.getElementById(`s2_exist_${name}`);
+    const distField = document.getElementById(`s2_exist_${name}_dist`);
+    if(cb) cb.checked = true;
+    if(distField) distField.value = distRaw;
+    lastLinkedTarget = { name, distance: distRaw };
+  } else {
+    lastLinkedTarget = null;
+  }
+  updateDescFromExisting();
+}
+function seedLastLinkedTarget(){
+  const name = $("target")?.value || "";
+  const dist = ($("distance")?.value || "").toString().trim();
+  lastLinkedTarget = (name && EXIST_FACILITIES.includes(name)) ? { name, distance: dist } : null;
+}
+
 /* 존재시설물 위치도: 도로(측선)를 가로로 그리고, 존재하는 시설물만 실제 거리 비례 위치에 표시.
    화살표는 거리를 재는 기준이 되는 진행방향 표시. */
 function renderExistingFacilityDiagram(){
   const box = $("s2Diagram"); if(!box) return;
   const roadWidthVal = Number($("roadWidth")?.value) || 0;
+  const workName = $("target")?.value || ""; // 측정결과의 대상시설물 = 지금 작업 중인 시설물(강조 표시 대상)
 
   const items = FACILITIES.map(name=>{
     const cb = document.getElementById(`s2_exist_${name}`);
@@ -626,7 +659,7 @@ function renderExistingFacilityDiagram(){
     const checked = !!cb?.checked;
     const distRaw = (distEl?.value||"").toString().trim();
     const dist = distRaw==="" ? null : Number(distRaw);
-    return { name, checked, dist, color: FACILITY_COLORS[name] || "#94a3b8" };
+    return { name, checked, dist, color: FACILITY_COLORS[name] || "#94a3b8", isWork: name===workName };
   }).filter(x=>x.checked);
 
   if(!items.length){
@@ -649,10 +682,15 @@ function renderExistingFacilityDiagram(){
     const tickY2 = above ? y-12 : y+12;
     const tickY1 = above ? labelY+6 : labelY-6;
     const distTxt = it.dist!=null ? `${it.dist}m` : "거리 미입력";
+    const r = it.isWork ? 12 : 9;
+    const ring = it.isWork ? `<circle cx="${cx}" cy="${y}" r="${r+5}" fill="none" stroke="${it.color}" stroke-width="2" stroke-dasharray="3,2" opacity="0.85"/>` : "";
+    const labelWeight = it.isWork ? "700" : "400";
+    const labelText = it.isWork ? `${it.name} ★작업중` : it.name;
     dotsSvg += `
       <line x1="${cx}" y1="${tickY1}" x2="${cx}" y2="${tickY2}" stroke="${it.color}" stroke-width="1.5" opacity="0.55"/>
-      <circle cx="${cx}" cy="${y}" r="9" fill="${it.color}" stroke="#ffffff" stroke-width="2"><title>${it.name} : ${distTxt}</title></circle>
-      <text x="${cx}" y="${labelY}" font-size="11" text-anchor="middle" fill="currentColor">${it.name}</text>
+      ${ring}
+      <circle cx="${cx}" cy="${y}" r="${r}" fill="${it.color}" stroke="#ffffff" stroke-width="2"><title>${it.name}${it.isWork ? " (현재 작업시설물)" : ""} : ${distTxt}</title></circle>
+      <text x="${cx}" y="${labelY}" font-size="11" font-weight="${labelWeight}" text-anchor="middle" fill="currentColor">${labelText}</text>
       <text x="${cx}" y="${labelY + (above?12:12)}" font-size="9" text-anchor="middle" fill="currentColor" opacity="0.65">${distTxt}</text>
     `;
   });
@@ -857,6 +895,7 @@ function clearForm(){
   selectedId=null;
   $("btnUpdate").disabled=true;
   $("btnDelete").disabled=true;
+  lastLinkedTarget = null; // 대상시설물이 비워졌으니 자동연동 기준값도 초기화
   clearStep2Form();
   currentPhotos=[]; renderPhotoThumbs();
   document.querySelectorAll("#tbl tbody tr").forEach(x=>x.classList.remove("is-selected"));
@@ -903,11 +942,24 @@ function refreshNowFields(obj){
 }
 
 /* ===== CRUD ===== */
+// 라인ID(측선) 끝에 붙은 숫자를 다음 번호로 올려준다. 예) "L-01" → "L-02", "3" → "4".
+// 끝에 숫자가 없으면(예: 순수 문자만) 자동으로 다음 값을 만들 수 없으므로 건드리지 않는다.
+function nextLineId(current){
+  const s = String(current||"").trim();
+  const m = s.match(/^(.*?)(\d+)(\s*)$/);
+  if(!m) return "";
+  const prefix = m[1], numStr = m[2], suffix = m[3];
+  const nextNum = parseInt(numStr, 10) + 1;
+  const nextStr = String(nextNum).padStart(numStr.length, "0");
+  return prefix + nextStr + suffix;
+}
+
 $("btnAdd")?.addEventListener("click", async ()=>{
   const missing = validateRequired();
   if(missing.length){ alert("다음 필수 항목을 입력해 주세요:\n- "+missing.join("\n- ")); return; }
 
   updateTMCoords();
+  syncTargetToExisting();
   const data=readForm();
   await applyAutoFieldsOnAdd(data);
   data.__step2 = readStep2Form();
@@ -918,7 +970,9 @@ $("btnAdd")?.addEventListener("click", async ()=>{
 
   await idbPut("records",{id: uid(), data, created_at:new Date().toISOString()});
   toast("추가했습니다");
+  const nextLine = nextLineId(data.line);
   clearForm();
+  if(nextLine && $("line")) $("line").value = nextLine; // 다음 라인ID로 자동 진행
   await reloadList();
 });
 
@@ -928,6 +982,7 @@ $("btnUpdate")?.addEventListener("click", async ()=>{
   if(missing.length){ alert("다음 필수 항목을 입력해 주세요:\n- "+missing.join("\n- ")); return; }
 
   updateTMCoords();
+  syncTargetToExisting();
   const data=readForm();
   refreshNowFields(data);
   data.__step2 = readStep2Form();
@@ -1037,6 +1092,7 @@ function renderTable(){
       syncLastDateValue(); // 이 기록의 실제 작업일자를 기준값으로 맞춰, 이후 수정 시 불필요한 초기화가 일어나지 않게 함
       updateTMCoords(); // 저장 당시 X,Y가 없던 옛 기록도 위·경도로부터 다시 계산해 보여줌
       renderStep2Form(); fillStep2Form(s2 || {});
+      seedLastLinkedTarget(); // 대상시설물↔존재시설물 자동연동 기준값을 이 기록의 실제 값으로 맞춤
       currentPhotos = (r.data.photos||[]).slice();
       renderPhotoThumbs();
       window.scrollTo({top:0, behavior:"smooth"});
@@ -1050,10 +1106,12 @@ $("formArea")?.addEventListener("input", (e)=>{
   if(!e.target) return;
   if(e.target.id==="roadWidth") renderExistingFacilityDiagram();
   if(e.target.id==="gps_lat" || e.target.id==="gps_lon") updateTMCoords();
+  if(e.target.id==="distance") syncTargetToExisting();
 });
 $("formArea")?.addEventListener("change", (e)=>{
   if(!e.target) return;
   if(e.target.id==="date") handleDateChanged(e.target.value);
+  if(e.target.id==="target") syncTargetToExisting();
 });
 
 $("q")?.addEventListener("input", renderTable);
