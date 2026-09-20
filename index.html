@@ -1632,10 +1632,19 @@ origin: ${env.origin}`;
 });
 $("btnEnvClose")?.addEventListener("click", ()=> $("envModal").classList.remove("show"));
 
-/* ===== Service Worker(오프라인 캐시) 등록 ===== */
+/* ===== Service Worker(오프라인 캐시) 등록 =====
+   GitHub에 새 index.html을 올려도 예전 버전이 계속 보인다는 신고에 대응: 새 서비스워커가
+   설치되어 이 페이지의 제어권을 넘겨받는 순간(controllerchange) 한 번만 자동으로 새로고침해서,
+   수동으로 두 번 새로고침하거나 캐시를 지우지 않아도 최신 버전이 바로 반영되게 한다. */
 if("serviceWorker" in navigator && location.protocol !== "file:"){
   window.addEventListener("load", ()=>{
     navigator.serviceWorker.register("./sw.js").catch(err=> console.warn("SW 등록 실패", err));
+  });
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+    if(swReloaded) return;
+    swReloaded = true;
+    location.reload();
   });
 }
 
